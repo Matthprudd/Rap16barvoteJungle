@@ -400,7 +400,9 @@ input:focus,select:focus,textarea:focus{
       </div>
       <span id="publicMonitorLive" class="status">HORS ONDES</span>
     </div>
-    <video id="publicMonitorVideo" class="media hidden" controls playsinline style="margin-top:14px;width:100%"></video>
+    <video id="publicMonitorVideo" class="media hidden" controls preload="metadata" playsinline webkit-playsinline style="margin-top:14px;width:100%"></video>
+    <button id="publicMonitorPlay" class="goodbtn hidden" type="button" style="width:100%;margin-top:10px">LANCER LA VIDÉO</button>
+    <div id="publicMonitorError" class="notice bad hidden"></div>
   </section>
   <section class="cards">
     <article class="card"><div class="avatar">16</div><h2>Participer</h2><p class="small">Remplis ta fiche et dépose ta vidéo. Un admin doit l'approuver avant publication.</p><button id="participateBtn">PARTICIPER</button></article>
@@ -420,7 +422,7 @@ input:focus,select:focus,textarea:focus{
     </div>
     <div style="margin-top:12px"><label>Présentation</label><textarea id="subBio"></textarea></div>
     <div style="margin-top:12px"><label>Vidéo 16 Bar</label><input id="subVideo" type="file" accept="video/*"></div>
-    <video id="subPreview" class="media hidden" controls playsinline style="margin-top:12px"></video>
+    <video id="subPreview" class="media hidden" controls preload="metadata" playsinline webkit-playsinline style="margin-top:12px"></video>
     <button id="sendSubmission" style="width:100%;margin-top:14px">ENVOYER MA PARTICIPATION</button>
     <div id="subMsg" class="notice hidden"></div>
   </section>
@@ -475,7 +477,8 @@ input:focus,select:focus,textarea:focus{
           </div>
           <div>
             <label>Fichier vidéo</label>
-            <input id="mediaFile" type="file" accept="video/*">
+            <input id="mediaFile" type="file" accept="video/mp4,video/webm,video/quicktime,video/*">
+            <div class="small" style="margin-top:6px">Pour une compatibilité maximale : MP4 encodé H.264 + audio AAC. Certains fichiers MOV/HEVC de téléphone peuvent être téléversés mais ne pas jouer dans Chrome/Android.</div>
           </div>
         </div>
 
@@ -485,7 +488,7 @@ input:focus,select:focus,textarea:focus{
           <label style="display:flex;align-items:center;gap:8px;margin:0"><input id="mediaMuted" type="checkbox" checked style="width:auto;min-height:auto"> Muet au démarrage</label>
         </div>
 
-        <video id="mediaUploadPreview" class="media hidden" controls playsinline style="margin-top:14px"></video>
+        <video id="mediaUploadPreview" class="media hidden" controls preload="metadata" playsinline webkit-playsinline style="margin-top:14px"></video>
 
         <div class="row" style="margin-top:12px">
           <button id="uploadMedia" class="goodbtn">AJOUTER À LA BIBLIOTHÈQUE</button>
@@ -550,33 +553,90 @@ async function loadPublicMedia(){
   renderPublicMedia();
 }
 function renderPublicMedia(){
-  const v=$("publicMonitorVideo"),title=$("publicMonitorTitle"),status=$("publicMonitorStatus"),live=$("publicMonitorLive");
+  const v=$("publicMonitorVideo"),
+        title=$("publicMonitorTitle"),
+        status=$("publicMonitorStatus"),
+        live=$("publicMonitorLive"),
+        playBtn=$("publicMonitorPlay"),
+        errBox=$("publicMonitorError");
   if(!v)return;
+
+  playBtn.classList.add("hidden");
+  errBox.classList.add("hidden");
+  errBox.textContent="";
+
   if(!currentMedia){
-    v.pause();v.removeAttribute("src");v.load();v.classList.add("hidden");
+    v.pause();
+    v.removeAttribute("src");
+    v.load();
+    v.classList.add("hidden");
     title.textContent="MONITEUR RAP JUNGLE";
     status.textContent="Aucune vidéo en diffusion pour le moment.";
     live.textContent="HORS ONDES";
     return;
   }
+
   title.textContent=currentMedia.title||"MONITEUR RAP JUNGLE";
-  status.textContent="Vidéo publique diffusée par l’équipe Rap Jungle.";
+  status.textContent="Chargement de la vidéo publique...";
   live.textContent="EN ONDES";
-  const changed=v.getAttribute("src")!==currentMedia.public_url;
-  if(changed)v.src=currentMedia.public_url;
+
   v.loop=!!currentMedia.loop;
   v.muted=!!currentMedia.muted;
   v.autoplay=!!currentMedia.autoplay;
+  v.playsInline=true;
+
+  v.onloadedmetadata=()=>{
+    status.textContent="Vidéo prête.";
+  };
+
+  v.oncanplay=()=>{
+    status.textContent="Vidéo prête à être lue.";
+  };
+
+  v.onerror=()=>{
+    const code=v.error?.code;
+    const detail=code===4
+      ?"Format ou codec vidéo non compatible avec ce navigateur. Utilise idéalement un MP4 H.264/AAC."
+      :"La vidéo n’a pas pu être chargée. Vérifie le fichier ou réessaie.";
+    status.textContent="Problème de lecture vidéo.";
+    errBox.textContent=detail;
+    errBox.classList.remove("hidden");
+    playBtn.classList.remove("hidden");
+  };
+
+  const changed=v.getAttribute("src")!==currentMedia.public_url;
+  if(changed){
+    v.pause();
+    v.src=currentMedia.public_url;
+    v.load();
+  }
+
   v.classList.remove("hidden");
+
+  const tryPlay=async()=>{
+    try{
+      await v.play();
+      playBtn.classList.add("hidden");
+      status.textContent="Lecture en cours.";
+    }catch(e){
+      playBtn.classList.remove("hidden");
+      status.textContent="Appuie sur « LANCER LA VIDÉO » pour démarrer.";
+    }
+  };
+
+  playBtn.onclick=tryPlay;
+
   if(currentMedia.autoplay){
-    const p=v.play();
-    if(p&&p.catch)p.catch(()=>{});
+    v.muted=true;
+    tryPlay();
+  }else{
+    playBtn.classList.remove("hidden");
   }
 }
 function renderPublic(){
   const label=challenge?`${challenge.name} — Thème : ${challenge.theme||"—"}${challenge.deadline?" — Date limite : "+challenge.deadline:""}`:"Aucun challenge actif";
   $("homeChallenge").textContent=label;$("voteChallenge").textContent=label;
-  $("participantCards").innerHTML=participants.map(p=>`<article class="card ${selectedCode===p.code?"selected":""}"><div class="avatar">${esc((p.name||"?")[0].toUpperCase())}</div><h3>${esc(p.name)}</h3>${p.video_url?`<video class="media" src="${esc(p.video_url)}" controls playsinline></video>`:""}<div class="qr" id="qr-${esc(p.id)}"></div><button class="choose" data-code="${esc(p.code)}">${selectedCode===p.code?"SÉLECTIONNÉ ✓":"CHOISIR"}</button></article>`).join("")||'<div class="notice">Aucun participant approuvé pour le moment.</div>';
+  $("participantCards").innerHTML=participants.map(p=>`<article class="card ${selectedCode===p.code?"selected":""}"><div class="avatar">${esc((p.name||"?")[0].toUpperCase())}</div><h3>${esc(p.name)}</h3>${p.video_url?`<video class="media" src="${esc(p.video_url)}" controls preload="metadata" playsinline webkit-playsinline></video>`:""}<div class="qr" id="qr-${esc(p.id)}"></div><button class="choose" data-code="${esc(p.code)}">${selectedCode===p.code?"SÉLECTIONNÉ ✓":"CHOISIR"}</button></article>`).join("")||'<div class="notice">Aucun participant approuvé pour le moment.</div>';
   participants.forEach(p=>{const el=$("qr-"+p.id);if(el&&window.QRCode)new QRCode(el,{text:location.href.split("?")[0]+"?vote="+encodeURIComponent(p.code),width:120,height:120})});
   document.querySelectorAll(".choose").forEach(b=>b.onclick=()=>{selectedCode=b.dataset.code;renderPublic()});
   const p=participants.find(x=>x.code===selectedCode);
@@ -591,7 +651,17 @@ $("backPublic").onclick=()=>show("homeView");
 $("adminBtn").onclick=()=>{show("adminView");renderAdminAuth()};
 
 let previewUrl=null;
-$("subVideo").onchange=()=>{const f=$("subVideo").files?.[0];if(previewUrl)URL.revokeObjectURL(previewUrl);if(f){previewUrl=URL.createObjectURL(f);$("subPreview").src=previewUrl;$("subPreview").classList.remove("hidden")}};
+$("subVideo").onchange=()=>{
+  const f=$("subVideo").files?.[0];
+  const v=$("subPreview");
+  if(previewUrl)URL.revokeObjectURL(previewUrl);
+  if(!f){v.classList.add("hidden");return}
+  previewUrl=URL.createObjectURL(f);
+  v.src=previewUrl;
+  v.load();
+  v.classList.remove("hidden");
+  v.onerror=()=>note("subMsg","Cette vidéo ne peut pas être lue dans ce navigateur. Pour le web, utilise idéalement MP4 H.264/AAC.","warn");
+};
 $("sendSubmission").onclick=async()=>{
   if(!challenge)return note("subMsg","Aucun challenge actif.","bad");
   const name=$("subName").value.trim(),email=emailNorm($("subEmail").value),file=$("subVideo").files?.[0];
@@ -660,7 +730,7 @@ $("toggleVoting").onclick=async()=>{try{await adminCall("toggle_voting",{challen
 
 function renderSubmissions(){
   const list=adminData.submissions||[];
-  $("submissionList").innerHTML=list.map(s=>`<article class="item"><div class="row" style="justify-content:space-between"><div><strong>${esc(s.name)}</strong><div class="small">${esc(s.email)}${s.city?" — "+esc(s.city):""}</div></div><span class="status">${esc(s.status)}</span></div>${s.social?`<div class="small">Réseaux : ${esc(s.social)}</div>`:""}${s.bio?`<p>${esc(s.bio)}</p>`:""}${s.video_signed_url?`<video class="media" src="${esc(s.video_signed_url)}" controls playsinline></video>`:""}<div class="row" style="margin-top:10px">${s.status==="pending"?`<button class="approve goodbtn" data-id="${esc(s.id)}">APPROUVER + CRÉER PARTICIPANT</button><button class="reject danger" data-id="${esc(s.id)}">REFUSER</button>`:""}</div></article>`).join("")||'<div class="small">Aucune participation.</div>';
+  $("submissionList").innerHTML=list.map(s=>`<article class="item"><div class="row" style="justify-content:space-between"><div><strong>${esc(s.name)}</strong><div class="small">${esc(s.email)}${s.city?" — "+esc(s.city):""}</div></div><span class="status">${esc(s.status)}</span></div>${s.social?`<div class="small">Réseaux : ${esc(s.social)}</div>`:""}${s.bio?`<p>${esc(s.bio)}</p>`:""}${s.video_signed_url?`<video class="media" src="${esc(s.video_signed_url)}" controls preload="metadata" playsinline webkit-playsinline></video>`:""}<div class="row" style="margin-top:10px">${s.status==="pending"?`<button class="approve goodbtn" data-id="${esc(s.id)}">APPROUVER + CRÉER PARTICIPANT</button><button class="reject danger" data-id="${esc(s.id)}">REFUSER</button>`:""}</div></article>`).join("")||'<div class="small">Aucune participation.</div>';
   document.querySelectorAll(".approve").forEach(b=>b.onclick=async()=>{try{await adminCall("approve_submission",{submissionId:b.dataset.id});await refreshAdmin();await loadPublic()}catch(e){alert(e.message)}});
   document.querySelectorAll(".reject").forEach(b=>b.onclick=async()=>{try{await adminCall("reject_submission",{submissionId:b.dataset.id});await refreshAdmin()}catch(e){alert(e.message)}});
 }
@@ -676,19 +746,37 @@ function renderParticipantsAdmin(){
 let mediaPreviewUrl=null;
 $("mediaFile").onchange=()=>{
   const f=$("mediaFile").files?.[0];
+  const v=$("mediaUploadPreview");
   if(mediaPreviewUrl)URL.revokeObjectURL(mediaPreviewUrl);
-  if(f){
-    mediaPreviewUrl=URL.createObjectURL(f);
-    $("mediaUploadPreview").src=mediaPreviewUrl;
-    $("mediaUploadPreview").classList.remove("hidden");
-  }else{
-    $("mediaUploadPreview").classList.add("hidden");
+
+  if(!f){
+    v.classList.add("hidden");
+    return;
   }
+
+  mediaPreviewUrl=URL.createObjectURL(f);
+  v.src=mediaPreviewUrl;
+  v.load();
+  v.classList.remove("hidden");
+
+  const browserSupport=f.type ? v.canPlayType(f.type) : "";
+  if(f.type && !browserSupport){
+    note("mediaMsg","Attention : ce format/codec n’est pas reconnu par ce navigateur. La vidéo peut être téléversée, mais elle risque de ne pas jouer chez le public. MP4 H.264/AAC recommandé.","warn");
+  }else{
+    note("mediaMsg","Prévisualisation chargée. Tu peux maintenant ajouter la vidéo à la bibliothèque.","good");
+  }
+
+  v.onerror=()=>note("mediaMsg","La prévisualisation ne peut pas être lue. Le codec du fichier est probablement incompatible avec le navigateur. Convertis idéalement en MP4 H.264/AAC.","warn");
 };
 
 $("uploadMedia").onclick=async()=>{
   const file=$("mediaFile").files?.[0];
   if(!file)return note("mediaMsg","Choisis une vidéo à téléverser.","bad");
+  if(file.size===0)return note("mediaMsg","Le fichier vidéo est vide.","bad");
+  const ext=(file.name.split(".").pop()||"").toLowerCase();
+  if(!["mp4","webm","mov","m4v"].includes(ext)){
+    return note("mediaMsg","Format non recommandé. Utilise MP4, WebM, MOV ou M4V. MP4 H.264/AAC est le choix le plus fiable.","bad");
+  }
   $("uploadMedia").disabled=true;
   $("uploadMedia").textContent="TÉLÉVERSEMENT...";
   try{
@@ -710,7 +798,7 @@ $("uploadMedia").onclick=async()=>{
     $("mediaTitle").value="";
     $("mediaFile").value="";
     $("mediaUploadPreview").classList.add("hidden");
-    note("mediaMsg","Vidéo ajoutée à la bibliothèque. Clique DIFFUSER pour l’envoyer sur l’interface publique.","good");
+    note("mediaMsg","Vidéo ajoutée à la bibliothèque avec succès. Clique DIFFUSER pour l’envoyer sur l’interface publique.","good");
     await refreshAdmin();
   }catch(e){
     note("mediaMsg","Erreur : "+e.message,"bad");
@@ -804,7 +892,7 @@ function renderFacebook(){const ps=adminData.participants||[];$("fbParticipant")
 function genFb(){const ps=adminData.participants||[],p=ps.find(x=>x.id===$("fbParticipant").value)||ps[0],type=$("fbType").value;let txt="";
 if(type==="challenge")txt=`RAP JUNGLE — ${challenge?.name||"16 Bar Challenge"}\n\nThème : ${challenge?.theme||"Libre"}\n\nLe challenge est ouvert. Tu veux participer? Ouvre l'application Rap Jungle et dépose ton 16 Bar.\n\nTu veux voter? Utilise l'application officielle.\n\n${location.href.split("?")[0]}`;
 else if(p)txt=`RAP JUNGLE — 16 BAR CHALLENGE\n\n${p.name} est officiellement en compétition.\n\nThème : ${challenge?.theme||"Libre"}\n\nRegarde son 16 Bar et vote ici :\n${location.href.split("?")[0]+"?vote="+p.code}\n\nUn courriel = un vote.`;
-$("fbCaption").value=txt;$("fbText").textContent=txt;$("fbMedia").innerHTML=p?.video_url?`<video src="${esc(p.video_url)}" controls playsinline></video>`:"";$("fbPreview").classList.remove("hidden")}
+$("fbCaption").value=txt;$("fbText").textContent=txt;$("fbMedia").innerHTML=p?.video_url?`<video src="${esc(p.video_url)}" controls preload="metadata" playsinline webkit-playsinline></video>`:"";$("fbPreview").classList.remove("hidden")}
 $("genFb").onclick=genFb;$("fbParticipant").onchange=genFb;$("fbType").onchange=genFb;
 $("copyFb").onclick=async()=>{await navigator.clipboard.writeText($("fbCaption").value);alert("Texte copié")};
 $("openFb").onclick=()=>window.open("https://www.facebook.com/groups/2832754326740368","_blank");
