@@ -1063,9 +1063,29 @@ async function ensureVideoConverter(){
       import("https://esm.sh/@ffmpeg/ffmpeg@0.12.15"),
       import("https://esm.sh/@ffmpeg/util@0.12.2")
     ]);
+
     const FFmpeg=modules[0].FFmpeg;
     const fetchFile=modules[1].fetchFile;
     const toBlobURL=modules[1].toBlobURL;
+
+    // IMPORTANT: @ffmpeg/ffmpeg instantiates its class worker from the module's
+    // origin by default. Browsers block that when the app runs on Vercel.
+    // We fetch the worker ourselves and turn it into a blob URL created by
+    // this page, so Worker() is no longer cross-origin.
+    const classWorkerRemote="https://esm.sh/@ffmpeg/ffmpeg@0.12.15/es2022/worker.js";
+    const workerResponse=await fetch(classWorkerRemote,{mode:"cors",cache:"force-cache"});
+    if(!workerResponse.ok)throw new Error("Impossible de charger le moteur de conversion vidéo.");
+    let workerCode=await workerResponse.text();
+
+    // Resolve any relative ESM imports that may be present in the CDN worker.
+    const workerBase="https://esm.sh/@ffmpeg/ffmpeg@0.12.15/es2022/";
+    workerCode=workerCode
+      .replace(/from\s*["']\.\/([^"']+)["']/g,(all,p1)=>`from "${workerBase}${p1}"`)
+      .replace(/import\s*\(\s*["']\.\/([^"']+)["']\s*\)/g,(all,p1)=>`import("${workerBase}${p1}")`);
+
+    const classWorkerURL=URL.createObjectURL(
+      new Blob([workerCode],{type:"text/javascript"})
+    );
 
     const ffmpeg=new FFmpeg();
     ffmpeg.on("progress",({progress})=>{
@@ -1075,18 +1095,33 @@ async function ensureVideoConverter(){
     });
 
     const baseURL="https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd";
+    const coreURL=await toBlobURL(`${baseURL}/ffmpeg-core.js`,"text/javascript");
+    const wasmURL=await toBlobURL(`${baseURL}/ffmpeg-core.wasm`,"application/wasm");
+
     await ffmpeg.load({
-      coreURL:await toBlobURL(`${baseURL}/ffmpeg-core.js`,"text/javascript"),
-      wasmURL:await toBlobURL(`${baseURL}/ffmpeg-core.wasm`,"application/wasm")
+      coreURL,
+      wasmURL,
+      classWorkerURL
     });
 
     ffmpeg.__fetchFile=fetchFile;
+    ffmpeg.__classWorkerURL=classWorkerURL;
     ffmpegInstance=ffmpeg;
+
+    $("subConvertStatus").textContent="Convertisseur vidéo prêt.";
+    $("subConvertMeterBar").style.width="10%";
+
     return ffmpeg;
   })();
 
   try{
     return await ffmpegLoading;
+  }catch(e){
+    const msg=String(e?.message||e||"Erreur inconnue");
+    if(/Worker|cross-origin|origin|accessed/i.test(msg)){
+      throw new Error("Le moteur de conversion a été bloqué par le navigateur. Recharge la page puis réessaie.");
+    }
+    throw e;
   }finally{
     ffmpegLoading=null;
   }
