@@ -484,30 +484,21 @@ input:focus,select:focus,textarea:focus{
         Ensuite, sélectionne le fichier converti et l’application l’enverra en morceaux avec reprise automatique.
       </div>
       <div id="subFileInfo" class="file-check small hidden"></div>
-      <div id="externalConverterPanel" class="panel hidden" style="margin-top:14px;padding:12px">
-        <div class="row" style="justify-content:space-between;align-items:center">
-          <div>
-            <strong>CONVERTISSEUR 45 MO</strong>
-            <div class="small">Utilise ton convertisseur Rap Jungle pour ramener la vidéo sous 45 Mo, puis sélectionne le fichier converti ici.</div>
-          </div>
-          <button id="closeExternalConverter" type="button" class="secondary">FERMER</button>
+      
+      <div id="externalConverterPanel" class="panel hidden" style="margin-top:14px;padding:14px">
+        <h3 style="margin-top:0">VIDÉO TROP GROSSE — CONVERTIR À 45 MO</h3>
+        <div class="small">
+          Ta vidéo dépasse la taille recommandée. Clique sur <strong>CONVERTIR MA VIDÉO</strong>.
+          Tes renseignements Rap Jungle seront conservés ici. Le convertisseur s’ouvrira, tu convertiras la vidéo,
+          puis tu reviendras automatiquement vers Rap Jungle pour sélectionner le fichier converti et terminer ta participation.
         </div>
-        <div style="margin-top:10px;border:1px solid #34523c;border-radius:14px;overflow:hidden;background:#000">
-          <iframe
-            id="converterFrame"
-            src="https://convertir45.vercel.app/"
-            title="Convertisseur vidéo 45 Mo"
-            style="width:100%;height:720px;border:0;background:#000"
-            allow="clipboard-read; clipboard-write"
-          ></iframe>
+        <div class="row" style="margin-top:12px">
+          <button id="launchExternalConverter" type="button" class="goodbtn">CONVERTIR MA VIDÉO</button>
+          <button id="closeExternalConverter" type="button" class="secondary">ANNULER</button>
         </div>
-        <div class="row" style="margin-top:10px">
-          <a href="https://convertir45.vercel.app/" target="_blank" rel="noopener" class="btn goodbtn" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">OUVRIR LE CONVERTISSEUR DANS UN NOUVEL ONGLET</a>
-        </div>
-        <div class="small" style="margin-top:8px">Après conversion, reviens ici et sélectionne la nouvelle vidéo convertie avec le bouton de fichier.</div>
       </div>
-      <div id="subConvertStatus" class="small" style="margin-top:8px"></div>
-      <button id="openExternalConverter" type="button" class="secondary hidden" style="width:100%;margin-top:8px">CONVERTIR LA VIDÉO À 45 MO</button>
+<div id="subConvertStatus" class="small" style="margin-top:8px"></div>
+      <button id="openExternalConverter" type="button" class="secondary hidden" style="width:100%;margin-top:8px">CONVERTIR MA VIDÉO</button>
       <div id="subUploadProgress" class="small" style="margin-top:8px"></div>
       <div id="subUploadMeter" class="upload-meter hidden"><div id="subUploadMeterBar"></div></div></div>
     <div id="subPreviewFrame" class="hidden" style="margin-top:12px">
@@ -623,7 +614,7 @@ const ADMIN_ENDPOINT=SUPABASE_URL+"/functions/v1/rj-admin";
 const UPLOAD_ENDPOINT=SUPABASE_URL+"/functions/v1/rj-upload-url";
 const STORAGE_TUS_ENDPOINT=SUPABASE_URL+"/storage/v1/upload/resumable";
 const STORAGE_TUS_DIRECT_ENDPOINT="https://hixkezzjgxfzmymkfyko.storage.supabase.co/storage/v1/upload/resumable";
-const MAX_VIDEO_BYTES=50*1024*1024;
+const MAX_VIDEO_BYTES=45*1024*1024;
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
 const $=id=>document.getElementById(id);
@@ -928,6 +919,7 @@ async function tryPlayParticipantPreview(){
 $("subPreviewPlay").onclick=tryPlayParticipantPreview;
 $("openExternalConverter").onclick=openExternalConverter;
 $("closeExternalConverter").onclick=closeExternalConverter;
+$("launchExternalConverter").onclick=launchConverter45;
 
 
 $("subVideo").onchange=()=>{
@@ -973,7 +965,7 @@ $("subVideo").onchange=()=>{
   v.onloadedmetadata=async()=>{
     participantVideoDuration=Number(v.duration)||0;
     info.innerHTML=`<strong>Fichier sélectionné</strong><br>Taille : ${humanMB(f.size)} · Durée : ${humanTime(participantVideoDuration)}
-      ${f.size>MAX_VIDEO_BYTES?'<br><span style="color:#ffb13b"><strong>Trop volumineux pour le stockage actuel (50 Mo max).</strong> La durée n’est PAS limitée à 1 minute : c’est seulement la taille du fichier qui bloque.</span>':''}`;
+      ${f.size>MAX_VIDEO_BYTES?'<br><span style="color:#ffb13b"><strong>Trop volumineux pour Rap Jungle (45 Mo max avant dépôt).</strong> La durée n’est PAS limitée à 1 minute : c’est seulement la taille du fichier qui bloque.</span>':''}`;
 
     if(v.videoWidth>0 && v.videoHeight>0){
       participantVideoPlayable=true;
@@ -982,15 +974,17 @@ $("subVideo").onchange=()=>{
       await tryPlayParticipantPreview();
     }else{
       participantVideoPlayable=false;
-      compat.textContent="Le fichier contient de l’audio, mais aucune image vidéo décodable par ce navigateur.";
+      compat.textContent="Le fichier contient une piste que ce navigateur ne peut pas décoder.";
       compat.style.color="#ffb13b";
+      $("openExternalConverter").classList.remove("hidden");
+      $("subConvertStatus").textContent="Codec non compatible avec le lecteur Rap Jungle : conversion requise.";
     }
 
     const needConvert=needsExternalConverter(f);
     $("openExternalConverter").classList.toggle("hidden",!needConvert);
     if(needConvert){
       $("subConvertStatus").textContent="Cette vidéo doit passer par le Convertisseur 45 Mo avant l’envoi.";
-      note("subMsg","Convertis cette vidéo avec le Convertisseur 45 Mo intégré, puis sélectionne le fichier converti.","warn");
+      note("subMsg","Cette vidéo doit être convertie, soit parce qu’elle dépasse 45 Mo, soit parce que son codec n’est pas lisible par le navigateur. Clique sur CONVERTIR MA VIDÉO : Convertir45 utilise FFmpeg et peut traiter le fichier même sans prévisualisation.","warn");
     }else{
       $("subConvertStatus").textContent="Vidéo compatible et sous 45 Mo : prête pour l’envoi.";
     }
@@ -1004,9 +998,11 @@ $("subVideo").onchange=()=>{
 
   v.onerror=()=>{
     participantVideoPlayable=false;
-    compat.textContent="Impossible de décoder la piste vidéo.";
+    compat.textContent="Ce navigateur ne peut pas lire le codec de cette vidéo.";
     compat.style.color="#ffb13b";
-    note("subMsg","La vidéo ne peut pas être lue. Essaie un MP4 encodé H.264 avec audio AAC.","warn");
+    $("openExternalConverter").classList.remove("hidden");
+    $("subConvertStatus").textContent="Codec non lisible ici : utilise Convertir45.";
+    note("subMsg","Cette vidéo ne peut pas être lue directement par Rap Jungle. Clique sur CONVERTIR MA VIDÉO : Convertir45 peut analyser le fichier avec FFmpeg même si Chrome ne peut pas le prévisualiser.","warn");
   };
 
   v.load();
@@ -1024,14 +1020,72 @@ function needsExternalConverter(file){
   return knownRisk || tooLarge || browserCannotDecode;
 }
 
+
+function saveParticipationDraft(){
+  const draft={
+    name:$("subName")?.value||"",
+    email:$("subEmail")?.value||"",
+    city:$("subCity")?.value||"",
+    social:$("subSocial")?.value||"",
+    bio:$("subBio")?.value||"",
+    savedAt:Date.now()
+  };
+  sessionStorage.setItem("rapJungleParticipationDraft",JSON.stringify(draft));
+}
+
+function restoreParticipationDraft(){
+  try{
+    const raw=sessionStorage.getItem("rapJungleParticipationDraft");
+    if(!raw)return;
+    const d=JSON.parse(raw);
+    if($("subName"))$("subName").value=d.name||"";
+    if($("subEmail"))$("subEmail").value=d.email||"";
+    if($("subCity"))$("subCity").value=d.city||"";
+    if($("subSocial"))$("subSocial").value=d.social||"";
+    if($("subBio"))$("subBio").value=d.bio||"";
+  }catch{}
+}
+
 function openExternalConverter(){
   const panel=$("externalConverterPanel");
   panel.classList.remove("hidden");
-  panel.scrollIntoView({behavior:"smooth",block:"start"});
+  panel.scrollIntoView({behavior:"smooth",block:"center"});
 }
 
 function closeExternalConverter(){
   $("externalConverterPanel").classList.add("hidden");
+}
+
+function launchConverter45(){
+  saveParticipationDraft();
+  sessionStorage.setItem("rapJungleAwaitingConvertedVideo","1");
+  window.location.href="https://convertir45.vercel.app/?return=https%3A%2F%2Frap16barvote-jungle.vercel.app%2F%3Fconverted%3D1";
+}
+
+function handleReturnFromConverter(){
+  restoreParticipationDraft();
+  const params=new URLSearchParams(location.search);
+  const cameBack=params.get("converted")==="1" || sessionStorage.getItem("rapJungleAwaitingConvertedVideo")==="1";
+  if(!cameBack)return;
+
+  sessionStorage.removeItem("rapJungleAwaitingConvertedVideo");
+  show("participateView");
+  setTimeout(()=>{
+    note("subMsg","Conversion terminée. Sélectionne maintenant la vidéo convertie téléchargée depuis Convertir45, puis clique ENVOYER MA PARTICIPATION.","good");
+    $("subConvertStatus").textContent="Vidéo convertie prête à être resélectionnée.";
+    $("openExternalConverter").classList.add("hidden");
+    const f=$("subVideo");
+    if(f){
+      f.scrollIntoView({behavior:"smooth",block:"center"});
+      try{f.click()}catch{}
+    }
+  },250);
+
+  if(params.get("converted")==="1"){
+    params.delete("converted");
+    const clean=location.pathname+(params.toString()?"?"+params.toString():"")+location.hash;
+    history.replaceState(null,"",clean);
+  }
 }
 
 async function createSubmissionUpload(file){
@@ -1278,7 +1332,7 @@ $("sendSubmission").onclick=async()=>{
   if(needsExternalConverter(file)){
     $("openExternalConverter").classList.remove("hidden");
     openExternalConverter();
-    return note("subMsg","Cette vidéo doit d’abord être convertie avec le Convertisseur 45 Mo. Après conversion, sélectionne le nouveau fichier ici puis renvoie ta participation.","warn");
+    return note("subMsg","Cette vidéo doit d’abord être convertie. Clique sur CONVERTIR MA VIDÉO : Convertir45 s’ouvrira, puis tu reviendras ici pour sélectionner la vidéo convertie.","warn");
   }
 
   if(file.size>MAX_VIDEO_BYTES){
@@ -1582,7 +1636,7 @@ function updateLionGuide(){
 window.addEventListener("scroll", updateLionGuide, {passive:true});
 window.addEventListener("resize", updateLionGuide);
 
-loadPublic().then(()=>{if(selectedCode){show("voteView");renderPublic()}else show("homeView");updateLionGuide()});
+loadPublic().then(()=>{if(selectedCode){show("voteView");renderPublic()}else show("homeView");updateLionGuide();handleReturnFromConverter()});
 </script>
 </body>
 </html>
