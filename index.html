@@ -115,9 +115,36 @@ input,select{
       <div class="row" style="justify-content:space-between;align-items:center">
         <div>
           <h2 style="margin-bottom:6px">Administration — Rap Jungle</h2>
-          <div class="small">Tout se gère ici, dans le même fichier HTML.</div>
+          <div class="small">Connexion réservée aux administrateurs.</div>
         </div>
         <button id="backPublic" class="secondary" type="button">RETOUR AU VOTE</button>
+      </div>
+    </section>
+
+    <section id="adminLoginPanel" class="panel">
+      <h2>Connexion admin</h2>
+      <div class="grid">
+        <div>
+          <label>Courriel administrateur</label>
+          <input id="adminEmail" type="email" autocomplete="username" placeholder="courriel@exemple.com">
+        </div>
+        <div>
+          <label>Code</label>
+          <input id="adminCode" type="password" inputmode="numeric" autocomplete="current-password" placeholder="Code à 4 chiffres">
+        </div>
+      </div>
+      <button id="adminLoginBtn" type="button" style="width:100%;margin-top:12px">OUVRIR L’ADMIN</button>
+      <div id="adminLoginMsg" class="notice hidden" role="status" aria-live="polite"></div>
+    </section>
+
+    <div id="adminProtected" class="hidden">
+    <section class="panel">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <div>
+          <h2 style="margin-bottom:6px">Session admin</h2>
+          <div id="adminSessionName" class="small"></div>
+        </div>
+        <button id="adminLogoutBtn" class="secondary" type="button">DÉCONNEXION</button>
       </div>
     </section>
 
@@ -178,6 +205,7 @@ input,select{
         directement dans un fichier HTML public sans la rendre visible.
       </div>
     </section>
+    </div>
   </section>
 </div>
 
@@ -201,6 +229,61 @@ input,select{
 
   let state = loadState();
   let selectedCode = new URLSearchParams(location.search).get('vote') || null;
+
+  const ADMIN_SESSION_KEY = 'rap_jungle_admin_session_v1';
+
+  const ADMIN_USERS = [
+    {
+      email:'matthieuprudhomme1984@gmail.com',
+      code:'1984',
+      name:'Matthieu Prudhomme'
+    },
+    {
+      email:'drummondgaspe@gmail.com',
+      code:'4891',
+      name:'Gasper'
+    }
+  ];
+
+  function getAdminSession(){
+    try{
+      return JSON.parse(sessionStorage.getItem(ADMIN_SESSION_KEY) || 'null');
+    }catch{
+      return null;
+    }
+  }
+
+  function setAdminSession(user){
+    sessionStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify({
+      email:user.email,
+      name:user.name,
+      authenticatedAt:new Date().toISOString()
+    }));
+  }
+
+  function clearAdminSession(){
+    sessionStorage.removeItem(ADMIN_SESSION_KEY);
+  }
+
+  function showAdminMessage(text, ok){
+    const el = $('adminLoginMsg');
+    el.textContent = text;
+    el.className = 'notice ' + (ok ? 'good' : 'bad');
+  }
+
+  function renderAdminAccess(){
+    const session = getAdminSession();
+    if(session){
+      $('adminLoginPanel').classList.add('hidden');
+      $('adminProtected').classList.remove('hidden');
+      $('adminSessionName').textContent = 'Connecté : ' + session.name + ' — ' + session.email;
+      renderAdmin();
+    }else{
+      $('adminLoginPanel').classList.remove('hidden');
+      $('adminProtected').classList.add('hidden');
+      $('adminSessionName').textContent = '';
+    }
+  }
 
   function loadState(){
     try{
@@ -358,7 +441,36 @@ input,select{
   $('adminEntry').addEventListener('click', () => {
     $('publicView').classList.add('hidden');
     $('adminView').classList.remove('hidden');
-    renderAdmin();
+    renderAdminAccess();
+  });
+
+
+  $('adminLoginBtn').addEventListener('click', () => {
+    const email = normalizeEmail($('adminEmail').value);
+    const code = String($('adminCode').value || '').trim();
+
+    const user = ADMIN_USERS.find(u => normalizeEmail(u.email) === email && u.code === code);
+
+    if(!user){
+      showAdminMessage('Courriel ou code administrateur invalide.', false);
+      return;
+    }
+
+    setAdminSession(user);
+    $('adminCode').value = '';
+    showAdminMessage('Connexion réussie.', true);
+    renderAdminAccess();
+  });
+
+  $('adminCode').addEventListener('keydown', (e) => {
+    if(e.key === 'Enter') $('adminLoginBtn').click();
+  });
+
+  $('adminLogoutBtn').addEventListener('click', () => {
+    clearAdminSession();
+    $('adminEmail').value = '';
+    $('adminCode').value = '';
+    renderAdminAccess();
   });
 
   $('backPublic').addEventListener('click', () => {
