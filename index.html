@@ -8,45 +8,383 @@
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <style>
 *{box-sizing:border-box}
-:root{--bg:#08090b;--panel:#15171b;--panel2:#1d2025;--line:#30343c;--text:#f5f5f5;--muted:#abb0b8;--good:#267d50;--bad:#7c3030;--warn:#806420}
-body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,Helvetica,sans-serif}
-.wrap{max-width:1160px;margin:auto;padding:16px}
-.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px}
-.brand{font-size:clamp(34px,7vw,66px);font-weight:900;line-height:.9}
-.sub{margin-top:7px;color:var(--muted);font-size:13px;letter-spacing:.12em}
-button,.btn{border:0;border-radius:12px;min-height:46px;padding:11px 15px;font-weight:800;cursor:pointer;background:#f1f1f1;color:#111}
+:root{
+  --bg:#09110c;
+  --bg2:#0d1710;
+  --panel:#111b15;
+  --panel2:#18261d;
+  --line:#34523c;
+  --text:#f6f8f6;
+  --muted:#b7c3b7;
+  --good:#2f9c63;
+  --bad:#9b3d34;
+  --warn:#a9791d;
+  --green:#2d8a4b;
+  --green2:#4caf50;
+  --orange:#ef8f1b;
+  --orange2:#ffb13b;
+  --white:#ffffff;
+  --black:#000000;
+}
+html{scroll-behavior:smooth}
+body{
+  margin:0;
+  color:var(--text);
+  font-family:Arial,Helvetica,sans-serif;
+  background:
+    radial-gradient(circle at 12% 18%, rgba(88,166,84,.17), transparent 18%),
+    radial-gradient(circle at 87% 22%, rgba(255,165,0,.10), transparent 20%),
+    radial-gradient(circle at 40% 80%, rgba(73,145,72,.12), transparent 20%),
+    linear-gradient(180deg,#08100c 0%,#0b1510 38%,#0a130f 100%);
+  position:relative;
+  overflow-x:hidden;
+}
+body::before,
+body::after{
+  content:"";
+  position:fixed;
+  top:0;
+  width:160px;
+  height:100vh;
+  pointer-events:none;
+  z-index:0;
+  opacity:.22;
+  background-repeat:repeat-y;
+  background-size:contain;
+}
+body::before{
+  left:-10px;
+  background-image:
+    radial-gradient(circle at 28px 24px, rgba(95,175,87,.8) 0 12px, transparent 13px),
+    radial-gradient(circle at 70px 72px, rgba(61,125,60,.9) 0 16px, transparent 17px),
+    radial-gradient(circle at 38px 130px, rgba(117,199,100,.7) 0 15px, transparent 16px),
+    linear-gradient(90deg, transparent 0 10px, rgba(57,101,56,.85) 10px 16px, transparent 16px);
+}
+body::after{
+  right:-10px;
+  background-image:
+    radial-gradient(circle at 100px 30px, rgba(95,175,87,.8) 0 14px, transparent 15px),
+    radial-gradient(circle at 60px 95px, rgba(61,125,60,.9) 0 17px, transparent 18px),
+    radial-gradient(circle at 112px 155px, rgba(117,199,100,.7) 0 15px, transparent 16px),
+    linear-gradient(90deg, transparent 0 138px, rgba(57,101,56,.85) 138px 144px, transparent 144px);
+}
+.wrap{
+  max-width:1160px;
+  margin:auto;
+  padding:18px 16px 40px;
+  position:relative;
+  z-index:2;
+}
+.top{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  flex-wrap:wrap;
+  margin-bottom:18px;
+  padding:18px 18px 14px;
+  border:1px solid rgba(88,144,80,.45);
+  border-radius:22px;
+  background:
+    linear-gradient(180deg, rgba(22,36,26,.94), rgba(14,24,18,.93)),
+    linear-gradient(90deg, rgba(239,143,27,.12), transparent 40%, rgba(76,175,80,.12));
+  box-shadow:0 16px 40px rgba(0,0,0,.28);
+}
+.brand{
+  font-size:clamp(34px,7vw,66px);
+  font-weight:900;
+  line-height:.88;
+  letter-spacing:.02em;
+  color:var(--white);
+  text-shadow:0 2px 10px rgba(0,0,0,.45);
+}
+.sub{
+  margin-top:8px;
+  color:#dbe7db;
+  font-size:13px;
+  letter-spacing:.18em;
+}
+button,.btn{
+  border:0;
+  border-radius:14px;
+  min-height:48px;
+  padding:12px 16px;
+  font-weight:900;
+  cursor:pointer;
+  background:linear-gradient(180deg,#fff,#f1f1f1);
+  color:#111;
+  transition:.2s transform,.2s opacity,.2s box-shadow,.2s background;
+  box-shadow:0 8px 18px rgba(0,0,0,.22);
+}
+button:hover,.btn:hover{transform:translateY(-1px)}
 button:disabled{opacity:.5;cursor:not-allowed}
-.secondary{background:#2b2f36!important;color:#fff!important}
-.danger{background:#6d2b2b!important;color:#fff!important}
-.goodbtn{background:#246d48!important;color:#fff!important}
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px;margin:14px 0}
-.hero{text-align:center;padding:18px 0} .hero h1{font-size:clamp(32px,6vw,58px);margin:0 0 8px} .hero p{margin:0;color:var(--muted)}
+.secondary{
+  background:linear-gradient(180deg, #236637, #194d29)!important;
+  color:#fff!important;
+}
+.danger{
+  background:linear-gradient(180deg,#9b3d34,#752922)!important;
+  color:#fff!important;
+}
+.goodbtn{
+  background:linear-gradient(180deg,#ef8f1b,#d47306)!important;
+  color:#fff!important;
+}
+.panel{
+  background:
+    linear-gradient(180deg, rgba(18,28,21,.96), rgba(13,21,16,.97));
+  border:1px solid rgba(74,120,76,.6);
+  border-radius:22px;
+  padding:18px;
+  margin:14px 0;
+  box-shadow:0 10px 28px rgba(0,0,0,.22);
+  position:relative;
+  overflow:hidden;
+}
+.panel::before{
+  content:"";
+  position:absolute;
+  inset:auto auto 0 0;
+  width:160px;
+  height:120px;
+  background:
+    radial-gradient(circle at 28px 96px, rgba(91,166,82,.18), transparent 44px),
+    radial-gradient(circle at 88px 85px, rgba(239,143,27,.12), transparent 48px);
+  pointer-events:none;
+}
+.hero{
+  text-align:center;
+  padding:20px 0 10px;
+}
+.hero h1{
+  font-size:clamp(34px,6vw,58px);
+  margin:0 0 10px;
+  color:#fff;
+  text-shadow:0 2px 10px rgba(0,0,0,.38);
+}
+.hero p{margin:0;color:#d4dfd4}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:15px;text-align:center}
-.card.selected{outline:2px solid #fff}
-.avatar{height:100px;border-radius:12px;background:linear-gradient(135deg,#242830,#101215);display:grid;place-items:center;font-size:44px;font-weight:900;margin-bottom:12px}
-.row{display:flex;gap:10px;flex-wrap:wrap;align-items:end} .grow{flex:1;min-width:220px}
-label{display:block;color:var(--muted);font-size:13px;margin-bottom:6px}
-input,select,textarea{width:100%;min-height:46px;background:#0d0f12;color:#fff;border:1px solid #383d45;border-radius:10px;padding:10px;font-size:16px}
+.card{
+  background:linear-gradient(180deg, rgba(20,31,23,.96), rgba(13,21,16,.97));
+  border:1px solid rgba(78,128,81,.52);
+  border-radius:20px;
+  padding:15px;
+  text-align:center;
+  box-shadow:0 10px 22px rgba(0,0,0,.18);
+  position:relative;
+  overflow:hidden;
+}
+.card::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:
+    linear-gradient(140deg, rgba(255,177,59,.08), transparent 35%),
+    linear-gradient(320deg, rgba(68,153,71,.08), transparent 40%);
+  pointer-events:none;
+}
+.card.selected{outline:2px solid var(--orange2)}
+.avatar{
+  height:100px;
+  border-radius:14px;
+  background:
+    radial-gradient(circle at 30% 30%, rgba(255,177,59,.25), transparent 38%),
+    linear-gradient(135deg,#244228,#101915);
+  display:grid;
+  place-items:center;
+  font-size:44px;
+  font-weight:900;
+  margin-bottom:12px;
+  color:#fff;
+  border:1px solid rgba(112,169,99,.35);
+}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+.grow{flex:1;min-width:220px}
+label{
+  display:block;
+  color:#d2ddd2;
+  font-size:13px;
+  margin-bottom:6px;
+  font-weight:700;
+}
+input,select,textarea{
+  width:100%;
+  min-height:48px;
+  background:#0a100d;
+  color:#fff;
+  border:1px solid #3a6042;
+  border-radius:12px;
+  padding:10px 12px;
+  font-size:16px;
+}
 textarea{min-height:120px;resize:vertical}
+input:focus,select:focus,textarea:focus{
+  outline:none;
+  border-color:var(--orange);
+  box-shadow:0 0 0 2px rgba(239,143,27,.15);
+}
 .small{font-size:13px;color:var(--muted);line-height:1.45}
 .hidden{display:none!important}
-.notice{padding:13px;border-radius:12px;background:#20242a;margin:14px 0;border:1px solid var(--line)}
-.good{border-color:var(--good)} .bad{border-color:var(--bad)} .warn{border-color:var(--warn)}
-.status{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:6px 10px;font-size:12px}
-.qr{display:inline-block;background:#fff;padding:8px;border-radius:10px;margin:10px auto}
-.media{width:100%;max-height:390px;object-fit:contain;background:#050607;border-radius:12px;border:1px solid var(--line)}
-.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 16px} .tab{background:#252932;color:#fff} .tab.active{background:#f1f1f1;color:#111}
-.item{background:#111318;border:1px solid var(--line);border-radius:14px;padding:14px;margin:10px 0}
-.kpi{font-size:34px;font-weight:900}
-.code{font-family:monospace;background:#0b0d10;border:1px solid var(--line);padding:10px;border-radius:10px;overflow-wrap:anywhere}
-.fb{max-width:560px;margin:14px auto;background:#fff;color:#111;border-radius:14px;overflow:hidden} .fb video{width:100%;max-height:520px;background:#111} .fbtext{padding:14px;white-space:pre-wrap;text-align:left}
-@media(max-width:620px){.wrap{padding:12px}.panel{padding:14px}.cards{grid-template-columns:1fr}}
+.notice{
+  padding:13px;
+  border-radius:14px;
+  background:#202b23;
+  margin:14px 0;
+  border:1px solid var(--line);
+}
+.good{border-color:var(--good)}
+.bad{border-color:var(--bad)}
+.warn{border-color:var(--warn)}
+.status{
+  display:inline-block;
+  border:1px solid rgba(96,146,97,.65);
+  border-radius:999px;
+  padding:7px 12px;
+  font-size:12px;
+  color:#fff;
+  background:rgba(35,64,39,.65);
+}
+.qr{
+  display:inline-block;
+  background:#fff;
+  padding:8px;
+  border-radius:12px;
+  margin:10px auto;
+}
+.media{
+  width:100%;
+  max-height:390px;
+  object-fit:contain;
+  background:#050607;
+  border-radius:16px;
+  border:1px solid #324f39;
+}
+.tabs{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin:10px 0 16px;
+}
+.tab{
+  background:linear-gradient(180deg,#1b5b31,#144426);
+  color:#fff;
+}
+.tab.active{
+  background:linear-gradient(180deg,#ef8f1b,#d87909);
+  color:#fff;
+}
+.item{
+  background:linear-gradient(180deg,#101813,#0e1511);
+  border:1px solid rgba(73,118,73,.55);
+  border-radius:16px;
+  padding:14px;
+  margin:10px 0;
+}
+.kpi{
+  font-size:34px;
+  font-weight:900;
+  color:var(--orange2);
+}
+.code{
+  font-family:monospace;
+  background:#0b0f0c;
+  border:1px solid #36523c;
+  padding:10px;
+  border-radius:12px;
+  overflow-wrap:anywhere;
+}
+.fb{
+  max-width:560px;
+  margin:14px auto;
+  background:#fff;
+  color:#111;
+  border-radius:14px;
+  overflow:hidden;
+}
+.fb video{width:100%;max-height:520px;background:#111}
+.fbtext{padding:14px;white-space:pre-wrap;text-align:left}
+.jungle-title{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.jungle-title::before{
+  content:"🌿";
+  font-size:20px;
+}
+#lionGuide{
+  position:fixed;
+  right:14px;
+  top:120px;
+  width:86px;
+  height:220px;
+  z-index:6;
+  pointer-events:none;
+  display:flex;
+  justify-content:center;
+}
+#lionGuideTrack{
+  position:absolute;
+  top:0;
+  bottom:0;
+  width:8px;
+  border-radius:999px;
+  background:linear-gradient(180deg, rgba(255,177,59,.18), rgba(73,145,72,.45));
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);
+}
+#lionGuideLeaves{
+  position:absolute;
+  inset:0;
+  background:
+    radial-gradient(circle at 34px 22px, rgba(108,185,91,.75) 0 10px, transparent 11px),
+    radial-gradient(circle at 50px 58px, rgba(89,155,78,.82) 0 12px, transparent 13px),
+    radial-gradient(circle at 28px 108px, rgba(112,191,94,.72) 0 9px, transparent 10px),
+    radial-gradient(circle at 52px 156px, rgba(89,155,78,.82) 0 12px, transparent 13px),
+    radial-gradient(circle at 30px 196px, rgba(112,191,94,.72) 0 9px, transparent 10px);
+  opacity:.8;
+}
+#lionGuideIcon{
+  position:absolute;
+  left:50%;
+  transform:translate(-50%,0);
+  width:62px;
+  height:62px;
+  border-radius:50%;
+  display:grid;
+  place-items:center;
+  font-size:34px;
+  background:radial-gradient(circle at 35% 30%, #ffd17a, #f2a126 58%, #bc6d08 100%);
+  box-shadow:0 10px 22px rgba(0,0,0,.35);
+  border:2px solid rgba(255,255,255,.35);
+}
+#lionGuideIcon::after{
+  content:"";
+  position:absolute;
+  inset:-6px;
+  border-radius:50%;
+  border:2px solid rgba(76,175,80,.35);
+}
+@media(max-width:920px){
+  #lionGuide{right:8px;transform:scale(.9);transform-origin:top right}
+}
+@media(max-width:620px){
+  .wrap{padding:12px}
+  .panel{padding:14px}
+  .cards{grid-template-columns:1fr}
+  #lionGuide{
+    right:6px;
+    top:132px;
+    width:64px;
+    height:180px;
+    transform:scale(.75);
+    transform-origin:top right;
+  }
+}
 </style>
 </head>
 <body>
-<div class="wrap">
+<div id="lionGuide"><div id="lionGuideTrack"></div><div id="lionGuideLeaves"></div><div id="lionGuideIcon">🦁</div></div><div class="wrap">
 <header class="top">
   <div><div class="brand">RAP JUNGLE</div><div class="sub">16 BAR CHALLENGE × MEYDEN</div></div>
   <div class="row"><button id="homeBtn" class="secondary">ACCUEIL</button><button id="adminBtn" class="secondary">ADMIN</button></div>
@@ -57,7 +395,7 @@ textarea{min-height:120px;resize:vertical}
   <section id="publicMonitorPanel" class="panel">
     <div class="row" style="justify-content:space-between;align-items:center">
       <div>
-        <h2 id="publicMonitorTitle" style="margin:0 0 5px">MONITEUR RAP JUNGLE</h2>
+        <h2 id="publicMonitorTitle" class="jungle-title" style="margin:0 0 5px">MONITEUR RAP JUNGLE</h2>
         <div id="publicMonitorStatus" class="small">Aucune vidéo en diffusion pour le moment.</div>
       </div>
       <span id="publicMonitorLive" class="status">HORS ONDES</span>
@@ -68,7 +406,7 @@ textarea{min-height:120px;resize:vertical}
     <article class="card"><div class="avatar">16</div><h2>Participer</h2><p class="small">Remplis ta fiche et dépose ta vidéo. Un admin doit l'approuver avant publication.</p><button id="participateBtn">PARTICIPER</button></article>
     <article class="card"><div class="avatar">✓</div><h2>Voter</h2><p class="small">Choisis un participant et confirme ton vote avec ton nom et ton courriel.</p><button id="voteBtn">VOTER</button></article>
   </section>
-  <section class="panel"><div class="row" style="justify-content:space-between;align-items:center"><div><h2 style="margin:0 0 5px">Challenge actif</h2><div id="homeChallenge" class="small">Chargement...</div></div><span class="status">SUPABASE CONNECTÉ</span></div></section>
+  <section class="panel"><div class="row" style="justify-content:space-between;align-items:center"><div><h2 class="jungle-title" style="margin:0 0 5px">Challenge actif</h2><div id="homeChallenge" class="small">Chargement...</div></div><span class="status">SUPABASE CONNECTÉ</span></div></section>
 </main>
 
 <section id="participateView" class="hidden">
@@ -96,7 +434,7 @@ textarea{min-height:120px;resize:vertical}
 </section>
 
 <section id="adminView" class="hidden">
-  <section class="panel"><div class="row" style="justify-content:space-between"><div><h2 style="margin:0">Administration Rap Jungle</h2><div class="small">Connexion sécurisée par Supabase Edge Function.</div></div><button id="backPublic" class="secondary">RETOUR PUBLIC</button></div></section>
+  <section class="panel"><div class="row" style="justify-content:space-between"><div><h2 class="jungle-title" style="margin:0">Administration Rap Jungle</h2><div class="small">Connexion sécurisée par Supabase Edge Function.</div></div><button id="backPublic" class="secondary">RETOUR PUBLIC</button></div></section>
 
   <section id="adminLogin" class="panel">
     <div class="grid"><div><label>Courriel admin</label><input id="adminEmail" type="email"></div><div><label>Code</label><input id="adminCode" type="password" inputmode="numeric"></div></div>
@@ -115,19 +453,19 @@ textarea{min-height:120px;resize:vertical}
     </div>
 
     <section id="aChallenge" class="adminTab">
-      <div class="panel"><h2>Challenge actif</h2><div class="grid"><div><label>Nom</label><input id="chName"></div><div><label>Thème</label><input id="chTheme"></div><div><label>Date limite</label><input id="chDeadline" type="date"></div></div><div class="row" style="margin-top:12px"><button id="saveChallenge">ENREGISTRER</button><button id="toggleVoting" class="danger">FERMER LES VOTES</button></div></div>
+      <div class="panel"><h2 class="jungle-title">Challenge actif</h2><div class="grid"><div><label>Nom</label><input id="chName"></div><div><label>Thème</label><input id="chTheme"></div><div><label>Date limite</label><input id="chDeadline" type="date"></div></div><div class="row" style="margin-top:12px"><button id="saveChallenge">ENREGISTRER</button><button id="toggleVoting" class="danger">FERMER LES VOTES</button></div></div>
     </section>
 
-    <section id="aSubmissions" class="adminTab hidden"><div class="panel"><h2>Participations reçues</h2><div id="submissionList"></div></div></section>
+    <section id="aSubmissions" class="adminTab hidden"><div class="panel"><h2 class="jungle-title">Participations reçues</h2><div id="submissionList"></div></div></section>
 
     <section id="aParticipants" class="adminTab hidden">
-      <div class="panel"><h2>Ajouter un participant</h2><div class="row"><div class="grow"><label>Nom de scène</label><input id="manualName"></div><button id="addManual">AJOUTER</button></div></div>
-      <div class="panel"><h2>Participants officiels</h2><div id="adminParticipants"></div></div>
+      <div class="panel"><h2 class="jungle-title">Ajouter un participant</h2><div class="row"><div class="grow"><label>Nom de scène</label><input id="manualName"></div><button id="addManual">AJOUTER</button></div></div>
+      <div class="panel"><h2 class="jungle-title">Participants officiels</h2><div id="adminParticipants"></div></div>
     </section>
 
     <section id="aMedia" class="adminTab hidden">
       <div class="panel">
-        <h2>Moniteur public</h2>
+        <h2 class="jungle-title">Moniteur public</h2>
         <p class="small">Téléverse une vidéo dans la bibliothèque, puis choisis laquelle doit être diffusée sur l’accueil public. Le changement est synchronisé par Supabase.</p>
 
         <div class="grid">
@@ -159,7 +497,7 @@ textarea{min-height:120px;resize:vertical}
       <div class="panel">
         <div class="row" style="justify-content:space-between;align-items:center">
           <div>
-            <h2 style="margin:0 0 5px">Bibliothèque vidéo</h2>
+            <h2 class="jungle-title" style="margin:0 0 5px">Bibliothèque vidéo</h2>
             <div class="small">La vidéo marquée EN ONDES est celle affichée au public.</div>
           </div>
         </div>
@@ -168,10 +506,10 @@ textarea{min-height:120px;resize:vertical}
     </section>
 
     <section id="aFacebook" class="adminTab hidden">
-      <div class="panel"><h2>Préparer une publication Facebook</h2><div class="grid"><div><label>Participant</label><select id="fbParticipant"></select></div><div><label>Publication</label><select id="fbType"><option value="participant">Participant</option><option value="challenge">Annonce générale</option></select></div></div><div style="margin-top:12px"><label>Texte</label><textarea id="fbCaption"></textarea></div><div class="row" style="margin-top:12px"><button id="genFb">GÉNÉRER</button><button id="copyFb" class="secondary">COPIER</button><button id="openFb" class="secondary">OUVRIR RAP JUNGLE SUR FACEBOOK</button></div><div id="fbPreview" class="fb hidden"><div id="fbMedia"></div><div id="fbText" class="fbtext"></div></div><div class="notice warn">Le bouton ci-dessus ouvre directement le groupe Facebook officiel Rap Jungle. La publication automatique dans le groupe n’est pas activée : le texte est préparé dans l’app, puis l’admin ouvre le groupe Rap Jungle pour publier manuellement.</div></div>
+      <div class="panel"><h2 class="jungle-title">Préparer une publication Facebook</h2><div class="grid"><div><label>Participant</label><select id="fbParticipant"></select></div><div><label>Publication</label><select id="fbType"><option value="participant">Participant</option><option value="challenge">Annonce générale</option></select></div></div><div style="margin-top:12px"><label>Texte</label><textarea id="fbCaption"></textarea></div><div class="row" style="margin-top:12px"><button id="genFb">GÉNÉRER</button><button id="copyFb" class="secondary">COPIER</button><button id="openFb" class="secondary">OUVRIR RAP JUNGLE SUR FACEBOOK</button></div><div id="fbPreview" class="fb hidden"><div id="fbMedia"></div><div id="fbText" class="fbtext"></div></div><div class="notice warn">Le bouton ci-dessus ouvre directement le groupe Facebook officiel Rap Jungle. La publication automatique dans le groupe n’est pas activée : le texte est préparé dans l’app, puis l’admin ouvre le groupe Rap Jungle pour publier manuellement.</div></div>
     </section>
 
-    <section id="aResults" class="adminTab hidden"><div class="panel"><div class="row" style="justify-content:space-between"><div><h2 style="margin:0">Résultats</h2><div id="resultSummary" class="small"></div></div><button id="exportCsv" class="secondary">EXPORT CSV</button></div><div id="resultCards" class="cards" style="margin-top:14px"></div></div></section>
+    <section id="aResults" class="adminTab hidden"><div class="panel"><div class="row" style="justify-content:space-between"><div><h2 class="jungle-title" style="margin:0">Résultats</h2><div id="resultSummary" class="small"></div></div><button id="exportCsv" class="secondary">EXPORT CSV</button></div><div id="resultCards" class="cards" style="margin-top:14px"></div></div></section>
   </div>
 </section>
 </div>
@@ -187,7 +525,7 @@ const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&
 const emailNorm=s=>String(s||"").trim().toLowerCase();
 function uid(prefix){const a=new Uint8Array(5);crypto.getRandomValues(a);return prefix+"-"+Array.from(a,b=>b.toString(16).padStart(2,"0")).join("").toUpperCase()}
 function voteId(){return "RJ16-"+new Date().toISOString().slice(0,10).replaceAll("-","")+"-"+uid("V").slice(2)}
-function show(id){["homeView","participateView","voteView","adminView"].forEach(x=>$(x).classList.add("hidden"));$(id).classList.remove("hidden")}
+function show(id){["homeView","participateView","voteView","adminView"].forEach(x=>$(x).classList.add("hidden"));$(id).classList.remove("hidden");setTimeout(updateLionGuide,30)}
 function note(id,text,type="good"){const e=$(id);e.textContent=text;e.className="notice "+type}
 let challenge=null,participants=[],selectedCode=new URLSearchParams(location.search).get("vote")||null;
 let currentMedia=null;
@@ -475,7 +813,20 @@ sb.channel("rap-jungle-public-monitor")
   .on("postgres_changes",{event:"*",schema:"public",table:"rj_public_media"},async()=>{await loadPublicMedia()})
   .subscribe();
 
-loadPublic().then(()=>{if(selectedCode){show("voteView");renderPublic()}else show("homeView")});
+
+function updateLionGuide(){
+  const guide=document.getElementById("lionGuide");
+  const icon=document.getElementById("lionGuideIcon");
+  if(!guide || !icon)return;
+  const maxMove=Math.max(0, guide.offsetHeight - icon.offsetHeight);
+  const scrollable=Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+  const progress=Math.min(1, Math.max(0, window.scrollY / scrollable));
+  icon.style.transform=`translate(-50%, ${Math.round(progress * maxMove)}px)`;
+}
+window.addEventListener("scroll", updateLionGuide, {passive:true});
+window.addEventListener("resize", updateLionGuide);
+
+loadPublic().then(()=>{if(selectedCode){show("voteView");renderPublic()}else show("homeView");updateLionGuide()});
 </script>
 </body>
 </html>
