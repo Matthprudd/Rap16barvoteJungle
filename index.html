@@ -6,7 +6,6 @@
 <title>Rap Jungle × MEYDEN — 16 Bar Challenge</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/tus-js-client@4/dist/tus.min.js"></script>
 <style>
 *{box-sizing:border-box}
 :root{
@@ -1123,7 +1122,7 @@ function handleReturnFromConverter(){
           $("subVideoCompat").style.color="#9fdaa8";
         };
         v.onerror=()=>{
-          $("subVideoCompat").textContent="Le fichier est bien pris en charge, mais ce navigateur ne peut pas le prévisualiser.";
+          $("subVideoCompat").textContent="Le fichier est bien stocké et pris en charge par Rap Jungle. Ce navigateur ne peut simplement pas le prévisualiser ici.";
           $("subVideoCompat").style.color="#ffb13b";
         };
       }catch(e){
@@ -1149,6 +1148,22 @@ function handleReturnFromConverter(){
   }
 }
 
+
+
+async function checkUploadBridge(){
+  try{
+    if(!challenge?.id)return false;
+    const r=await fetch(UPLOAD_ENDPOINT,{
+      method:"POST",
+      headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY},
+      body:JSON.stringify({action:"health",challengeId:challenge.id})
+    });
+    const j=await r.json();
+    return !!(r.ok && j.ok);
+  }catch{
+    return false;
+  }
+}
 
 async function getConvertedPreviewUrl(path){
   const r=await fetch(UPLOAD_ENDPOINT,{
@@ -1700,7 +1715,12 @@ function updateLionGuide(){
 window.addEventListener("scroll", updateLionGuide, {passive:true});
 window.addEventListener("resize", updateLionGuide);
 
-loadPublic().then(()=>{if(selectedCode){show("voteView");renderPublic()}else show("homeView");updateLionGuide();handleReturnFromConverter()});
+loadPublic().then(async()=>{
+  if(selectedCode){show("voteView");renderPublic()}else show("homeView");
+  updateLionGuide();
+  await checkUploadBridge();
+  handleReturnFromConverter();
+});
 </script>
 </body>
 </html>
