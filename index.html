@@ -430,6 +430,10 @@ input:focus,select:focus,textarea:focus{
       <div id="subVideoCompat" class="small" style="margin-top:7px"></div>
     </div>
     <button id="sendSubmission" style="width:100%;margin-top:14px">ENVOYER MA PARTICIPATION</button>
+    <div class="notice" style="margin-top:12px">
+      <strong>Publication de la vidéo :</strong>
+      <div class="small" style="margin-top:4px">Après approbation par l’administration Rap Jungle, la vidéo devient automatiquement visible dans la galerie publique et dans la zone de vote.</div>
+    </div>
     <div id="subMsg" class="notice hidden"></div>
   </section>
 </section>
@@ -645,6 +649,38 @@ function renderPublicMedia(){
     playBtn.classList.remove("hidden");
   }
 }
+
+function renderPublicVideoGallery(){
+  const el=$("publicVideoGallery");
+  if(!el)return;
+  const vids=(participants||[]).filter(p=>p.status==="approved" && p.video_url);
+  $("publicVideoCount").textContent=vids.length+" VIDÉO"+(vids.length>1?"S":"");
+  el.innerHTML=vids.map(p=>`
+    <article class="card">
+      <div class="avatar">${esc((p.name||"?")[0].toUpperCase())}</div>
+      <h3 style="margin:8px 0 10px">${esc(p.name)}</h3>
+      <video
+        class="media participant-public-video"
+        src="${esc(p.video_url)}"
+        controls
+        preload="metadata"
+        playsinline
+        webkit-playsinline
+      ></video>
+      <div class="row" style="margin-top:10px">
+        <button class="galleryVote goodbtn" data-code="${esc(p.code)}">VOTER POUR ${esc(p.name)}</button>
+      </div>
+    </article>
+  `).join("") || '<div class="notice">Aucune vidéo de participant publiée pour le moment.</div>';
+
+  document.querySelectorAll(".galleryVote").forEach(b=>b.onclick=()=>{
+    selectedCode=b.dataset.code;
+    show("voteView");
+    renderPublic();
+    window.scrollTo({top:0,behavior:"smooth"});
+  });
+}
+
 function renderPublic(){
   const label=challenge?`${challenge.name} — Thème : ${challenge.theme||"—"}${challenge.deadline?" — Date limite : "+challenge.deadline:""}`:"Aucun challenge actif";
   $("homeChallenge").textContent=label;$("voteChallenge").textContent=label;
