@@ -253,8 +253,11 @@ input:focus,select:focus,textarea:focus{
   margin:10px auto;
 }
 .media{
+  display:block;
   width:100%;
-  max-height:390px;
+  aspect-ratio:16/9;
+  min-height:220px;
+  max-height:520px;
   object-fit:contain;
   background:#050607;
   border-radius:16px;
@@ -422,7 +425,10 @@ input:focus,select:focus,textarea:focus{
     </div>
     <div style="margin-top:12px"><label>Présentation</label><textarea id="subBio"></textarea></div>
     <div style="margin-top:12px"><label>Vidéo 16 Bar</label><input id="subVideo" type="file" accept="video/*"></div>
-    <video id="subPreview" class="media hidden" controls preload="metadata" playsinline webkit-playsinline style="margin-top:12px"></video>
+    <div id="subPreviewFrame" class="hidden" style="margin-top:12px">
+      <video id="subPreview" class="media" controls preload="metadata" playsinline webkit-playsinline></video>
+      <div id="subVideoCompat" class="small" style="margin-top:7px"></div>
+    </div>
     <button id="sendSubmission" style="width:100%;margin-top:14px">ENVOYER MA PARTICIPATION</button>
     <div id="subMsg" class="notice hidden"></div>
   </section>
@@ -488,7 +494,10 @@ input:focus,select:focus,textarea:focus{
           <label style="display:flex;align-items:center;gap:8px;margin:0"><input id="mediaMuted" type="checkbox" checked style="width:auto;min-height:auto"> Muet au démarrage</label>
         </div>
 
-        <video id="mediaUploadPreview" class="media hidden" controls preload="metadata" playsinline webkit-playsinline style="margin-top:14px"></video>
+        <div id="mediaPreviewFrame" class="hidden" style="margin-top:14px">
+      <video id="mediaUploadPreview" class="media" controls preload="metadata" playsinline webkit-playsinline></video>
+      <div id="mediaVideoCompat" class="small" style="margin-top:7px"></div>
+    </div>
 
         <div class="row" style="margin-top:12px">
           <button id="uploadMedia" class="goodbtn">AJOUTER À LA BIBLIOTHÈQUE</button>
@@ -584,6 +593,9 @@ function renderPublicMedia(){
   v.muted=!!currentMedia.muted;
   v.autoplay=!!currentMedia.autoplay;
   v.playsInline=true;
+  v.style.display="block";
+  v.style.aspectRatio="16 / 9";
+  v.style.minHeight="220px";
 
   v.onloadedmetadata=()=>{
     status.textContent="Vidéo prête.";
@@ -654,13 +666,38 @@ let previewUrl=null;
 $("subVideo").onchange=()=>{
   const f=$("subVideo").files?.[0];
   const v=$("subPreview");
+  const frame=$("subPreviewFrame");
+  const compat=$("subVideoCompat");
   if(previewUrl)URL.revokeObjectURL(previewUrl);
-  if(!f){v.classList.add("hidden");return}
+
+  if(!f){
+    frame.classList.add("hidden");
+    compat.textContent="";
+    return;
+  }
+
   previewUrl=URL.createObjectURL(f);
   v.src=previewUrl;
   v.load();
-  v.classList.remove("hidden");
-  v.onerror=()=>note("subMsg","Cette vidéo ne peut pas être lue dans ce navigateur. Pour le web, utilise idéalement MP4 H.264/AAC.","warn");
+  frame.classList.remove("hidden");
+  compat.textContent="Vérification de la piste vidéo…";
+
+  v.onloadedmetadata=()=>{
+    if(v.videoWidth>0 && v.videoHeight>0){
+      compat.textContent=`Vidéo détectée : ${v.videoWidth} × ${v.videoHeight}.`;
+      compat.style.color="#9fdaa8";
+    }else{
+      compat.textContent="Aucune image vidéo décodable détectée. Le navigateur ne reconnaît probablement pas le codec vidéo.";
+      compat.style.color="#ffb13b";
+      note("subMsg","Le fichier contient peut-être une piste vidéo HEVC/H.265 non compatible avec ce navigateur. Convertis-le en MP4 H.264/AAC avant l’envoi.","warn");
+    }
+  };
+
+  v.onerror=()=>{
+    compat.textContent="Impossible de décoder la piste vidéo.";
+    compat.style.color="#ffb13b";
+    note("subMsg","Cette vidéo ne peut pas être décodée ici. Utilise un MP4 H.264 avec audio AAC.","warn");
+  };
 };
 $("sendSubmission").onclick=async()=>{
   if(!challenge)return note("subMsg","Aucun challenge actif.","bad");
@@ -676,7 +713,7 @@ $("sendSubmission").onclick=async()=>{
     const ins=await sb.from("rj_submissions").insert({id,challenge_id:challenge.id,name,email,city:$("subCity").value.trim()||null,social:$("subSocial").value.trim()||null,bio:$("subBio").value.trim()||null,video_path:path,status:"pending"});
     if(ins.error)throw ins.error;
     note("subMsg","Participation envoyée. Un admin doit maintenant l'approuver.","good");
-    ["subName","subEmail","subCity","subSocial","subBio"].forEach(id=>$(id).value="");$("subVideo").value="";$("subPreview").classList.add("hidden");
+    ["subName","subEmail","subCity","subSocial","subBio"].forEach(id=>$(id).value="");$("subVideo").value="";$("subPreviewFrame").classList.add("hidden");
   }catch(e){note("subMsg","Erreur : "+e.message,"bad")}
   finally{$("sendSubmission").disabled=false;$("sendSubmission").textContent="ENVOYER MA PARTICIPATION"}
 };
@@ -747,32 +784,49 @@ let mediaPreviewUrl=null;
 $("mediaFile").onchange=()=>{
   const f=$("mediaFile").files?.[0];
   const v=$("mediaUploadPreview");
+  const frame=$("mediaPreviewFrame");
+  const compat=$("mediaVideoCompat");
   if(mediaPreviewUrl)URL.revokeObjectURL(mediaPreviewUrl);
 
   if(!f){
-    v.classList.add("hidden");
+    frame.classList.add("hidden");
+    compat.textContent="";
     return;
   }
 
   mediaPreviewUrl=URL.createObjectURL(f);
   v.src=mediaPreviewUrl;
   v.load();
-  v.classList.remove("hidden");
+  frame.classList.remove("hidden");
+  compat.textContent="Vérification de la piste vidéo…";
 
-  const browserSupport=f.type ? v.canPlayType(f.type) : "";
-  if(f.type && !browserSupport){
-    note("mediaMsg","Attention : ce format/codec n’est pas reconnu par ce navigateur. La vidéo peut être téléversée, mais elle risque de ne pas jouer chez le public. MP4 H.264/AAC recommandé.","warn");
-  }else{
-    note("mediaMsg","Prévisualisation chargée. Tu peux maintenant ajouter la vidéo à la bibliothèque.","good");
-  }
+  v.onloadedmetadata=()=>{
+    if(v.videoWidth>0 && v.videoHeight>0){
+      compat.textContent=`Vidéo détectée : ${v.videoWidth} × ${v.videoHeight}.`;
+      compat.style.color="#9fdaa8";
+      note("mediaMsg","Prévisualisation vidéo correcte. Tu peux l’ajouter à la bibliothèque.","good");
+    }else{
+      compat.textContent="Le navigateur reçoit l’audio, mais ne peut pas décoder l’image vidéo.";
+      compat.style.color="#ffb13b";
+      note("mediaMsg","Codec vidéo incompatible détecté. Convertis le fichier en MP4 H.264/AAC avant de le diffuser.","warn");
+    }
+  };
 
-  v.onerror=()=>note("mediaMsg","La prévisualisation ne peut pas être lue. Le codec du fichier est probablement incompatible avec le navigateur. Convertis idéalement en MP4 H.264/AAC.","warn");
+  v.onerror=()=>{
+    compat.textContent="Impossible de décoder la piste vidéo.";
+    compat.style.color="#ffb13b";
+    note("mediaMsg","La piste vidéo ne peut pas être décodée. MP4 H.264/AAC recommandé.","warn");
+  };
 };
 
 $("uploadMedia").onclick=async()=>{
   const file=$("mediaFile").files?.[0];
   if(!file)return note("mediaMsg","Choisis une vidéo à téléverser.","bad");
   if(file.size===0)return note("mediaMsg","Le fichier vidéo est vide.","bad");
+  const previewVideo=$("mediaUploadPreview");
+  if(!previewVideo.videoWidth || !previewVideo.videoHeight){
+    return note("mediaMsg","Cette vidéo n’a pas d’image décodable sur cet ordinateur. Elle donnerait seulement de l’audio au public. Convertis-la en MP4 H.264/AAC avant de l’ajouter.","bad");
+  }
   const ext=(file.name.split(".").pop()||"").toLowerCase();
   if(!["mp4","webm","mov","m4v"].includes(ext)){
     return note("mediaMsg","Format non recommandé. Utilise MP4, WebM, MOV ou M4V. MP4 H.264/AAC est le choix le plus fiable.","bad");
@@ -797,7 +851,7 @@ $("uploadMedia").onclick=async()=>{
 
     $("mediaTitle").value="";
     $("mediaFile").value="";
-    $("mediaUploadPreview").classList.add("hidden");
+    $("mediaPreviewFrame").classList.add("hidden");
     note("mediaMsg","Vidéo ajoutée à la bibliothèque avec succès. Clique DIFFUSER pour l’envoyer sur l’interface publique.","good");
     await refreshAdmin();
   }catch(e){
