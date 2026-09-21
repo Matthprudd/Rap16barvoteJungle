@@ -625,6 +625,7 @@ function voteId(){return "RJ16-"+new Date().toISOString().slice(0,10).replaceAll
 function show(id){["homeView","participateView","voteView","adminView"].forEach(x=>$(x).classList.add("hidden"));$(id).classList.remove("hidden");setTimeout(updateLionGuide,30)}
 function note(id,text,type="good"){const e=$(id);e.textContent=text;e.className="notice "+type}
 let challenge=null,participants=[],selectedCode=new URLSearchParams(location.search).get("vote")||null;
+let convertedUploadRef=null;
 let currentMedia=null;
 let adminData={submissions:[],participants:[],votes:[],media:[],active:null};
 let adminCred=null;
@@ -923,6 +924,7 @@ $("launchExternalConverter").onclick=launchConverter45;
 
 
 $("subVideo").onchange=()=>{
+  convertedUploadRef=null;
   const f=$("subVideo").files?.[0];
   const v=$("subPreview");
   const frame=$("subPreviewFrame");
@@ -1057,35 +1059,110 @@ function closeExternalConverter(){
 }
 
 function launchConverter45(){
+  if(!challenge){
+    return note("subMsg","Aucun challenge actif.","bad");
+  }
   saveParticipationDraft();
   sessionStorage.setItem("rapJungleAwaitingConvertedVideo","1");
-  window.location.href="https://convertir45.vercel.app/?return=https%3A%2F%2Frap16barvote-jungle.vercel.app%2F%3Fconverted%3D1";
+
+  const returnURL=new URL(location.origin+location.pathname);
+  returnURL.searchParams.set("converted","1");
+
+  const converterURL=new URL("https://convertir45.vercel.app/");
+  converterURL.searchParams.set("return",returnURL.toString());
+  converterURL.searchParams.set("challenge",challenge.id);
+
+  window.location.href=converterURL.toString();
 }
 
 function handleReturnFromConverter(){
   restoreParticipationDraft();
   const params=new URLSearchParams(location.search);
-  const cameBack=params.get("converted")==="1" || sessionStorage.getItem("rapJungleAwaitingConvertedVideo")==="1";
-  if(!cameBack)return;
 
-  sessionStorage.removeItem("rapJungleAwaitingConvertedVideo");
-  show("participateView");
-  setTimeout(()=>{
-    note("subMsg","Conversion terminée. Sélectionne maintenant la vidéo convertie téléchargée depuis Convertir45, puis clique ENVOYER MA PARTICIPATION.","good");
-    $("subConvertStatus").textContent="Vidéo convertie prête à être resélectionnée.";
-    $("openExternalConverter").classList.add("hidden");
-    const f=$("subVideo");
-    if(f){
-      f.scrollIntoView({behavior:"smooth",block:"center"});
-      try{f.click()}catch{}
-    }
-  },250);
+  const converted=params.get("converted")==="1";
+  const uploadId=params.get("uploadId")||"";
+  const videoPath=params.get("videoPath")||"";
+  const filename=params.get("filename")||"video_45Mo.mp4";
 
-  if(params.get("converted")==="1"){
-    params.delete("converted");
+  if(converted && uploadId && videoPath){
+    convertedUploadRef={id:uploadId,path:videoPath,filename};
+
+    sessionStorage.removeItem("rapJungleAwaitingConvertedVideo");
+    show("participateView");
+
+    setTimeout(async()=>{
+      $("subConvertStatus").textContent="VIDÉO CONVERTIE ET VALIDÉE À 100 %";
+      $("subConvertStatus").style.color="#9fdaa8";
+      $("openExternalConverter").classList.add("hidden");
+
+      const ext=(filename.split(".").pop()||"").toLowerCase();
+      const formatLabel=ext==="webm"?"WebM compatible navigateur":"MP4 compatible";
+
+      $("subFileInfo").classList.remove("hidden");
+      $("subFileInfo").innerHTML=
+        `<strong>${esc(filename)}</strong><br>`+
+        `<span style="color:#9fdaa8"><strong>✓ Sous 45 Mo<br>✓ ${formatLabel}<br>✓ Déjà téléversée dans Rap Jungle<br>✓ Prête pour le dépôt</strong></span>`;
+
+      try{
+        const previewUrl=await getConvertedPreviewUrl(videoPath);
+        const v=$("subPreview");
+        v.src=previewUrl;
+        v.muted=false;
+        v.playsInline=true;
+        v.preload="metadata";
+        v.load();
+
+        $("subPreviewFrame").classList.remove("hidden");
+        $("subVideoCompat").textContent="Vidéo convertie chargée depuis Rap Jungle. Appuie sur LANCER LA VIDÉO pour la vérifier.";
+        $("subVideoCompat").style.color="#9fdaa8";
+        $("subPreviewPlay").textContent="LANCER LA VIDÉO";
+        $("subPreviewPlay").classList.remove("secondary");
+
+        v.onloadedmetadata=()=>{
+          $("subVideoCompat").textContent=`Vidéo convertie prête : ${v.videoWidth||"?"} × ${v.videoHeight||"?"} · ${humanTime(v.duration||0)}.`;
+          $("subVideoCompat").style.color="#9fdaa8";
+        };
+        v.onerror=()=>{
+          $("subVideoCompat").textContent="Le fichier est bien pris en charge, mais ce navigateur ne peut pas le prévisualiser.";
+          $("subVideoCompat").style.color="#ffb13b";
+        };
+      }catch(e){
+        $("subPreviewFrame").classList.add("hidden");
+        $("subVideoCompat").textContent="";
+      }
+
+      note("subMsg","La vidéo convertie est revenue automatiquement de Convertir45 et est déjà prise en charge par Rap Jungle. Vérifie-la puis clique ENVOYER MA PARTICIPATION.","good");
+      $("sendSubmission").scrollIntoView({behavior:"smooth",block:"center"});
+    },200);
+
+    ["converted","uploadId","videoPath","filename"].forEach(k=>params.delete(k));
     const clean=location.pathname+(params.toString()?"?"+params.toString():"")+location.hash;
     history.replaceState(null,"",clean);
+    return;
   }
+
+  if(converted || sessionStorage.getItem("rapJungleAwaitingConvertedVideo")==="1"){
+    show("participateView");
+    setTimeout(()=>{
+      note("subMsg","Retour de Convertir45 détecté, mais aucun fichier converti n’a été transmis. Reprends la conversion ou sélectionne une vidéo.","warn");
+    },200);
+  }
+}
+
+
+async function getConvertedPreviewUrl(path){
+  const r=await fetch(UPLOAD_ENDPOINT,{
+    method:"POST",
+    headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY},
+    body:JSON.stringify({
+      action:"preview",
+      challengeId:challenge.id,
+      path
+    })
+  });
+  const j=await r.json();
+  if(!r.ok || j.error)throw new Error(j.error||"Impossible de préparer la prévisualisation.");
+  return j.signedUrl;
 }
 
 async function createSubmissionUpload(file){
@@ -1323,20 +1400,53 @@ $("sendSubmission").onclick=async()=>{
 
   const name=$("subName").value.trim();
   const email=emailNorm($("subEmail").value);
-  const file=$("subVideo").files?.[0];
+  const localFile=$("subVideo").files?.[0];
 
   if(!name)return note("subMsg","Entre ton nom ou nom de scène.","bad");
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return note("subMsg","Entre un courriel valide.","bad");
+
+  // FLOW A — Convertir45 already converted AND uploaded the file.
+  if(convertedUploadRef){
+    $("sendSubmission").disabled=true;
+    $("sendSubmission").textContent="ENREGISTREMENT...";
+    try{
+      const ins=await sb.from("rj_submissions").insert({
+        id:convertedUploadRef.id,
+        challenge_id:challenge.id,
+        name,
+        email,
+        city:$("subCity").value.trim()||null,
+        social:$("subSocial").value.trim()||null,
+        bio:$("subBio").value.trim()||null,
+        video_path:convertedUploadRef.path,
+        status:"pending"
+      });
+      if(ins.error)throw ins.error;
+
+      note("subMsg","Participation envoyée. La vidéo convertie est validée et enregistrée; elle attend maintenant l’approbation admin.","good");
+      sessionStorage.removeItem("rapJungleParticipationDraft");
+      convertedUploadRef=null;
+      ["subName","subEmail","subCity","subSocial","subBio"].forEach(id=>$(id).value="");
+      $("subVideo").value="";
+      $("subFileInfo").classList.add("hidden");
+      $("subConvertStatus").textContent="";
+    }catch(e){
+      note("subMsg","Erreur : "+(e?.message||String(e)),"bad");
+    }finally{
+      $("sendSubmission").disabled=false;
+      $("sendSubmission").textContent="ENVOYER MA PARTICIPATION";
+    }
+    return;
+  }
+
+  // FLOW B — Normal local file.
+  const file=localFile;
   if(!file)return note("subMsg","Ajoute ta vidéo.","bad");
 
   if(needsExternalConverter(file)){
     $("openExternalConverter").classList.remove("hidden");
     openExternalConverter();
-    return note("subMsg","Cette vidéo doit d’abord être convertie. Clique sur CONVERTIR MA VIDÉO : Convertir45 s’ouvrira, puis tu reviendras ici pour sélectionner la vidéo convertie.","warn");
-  }
-
-  if(file.size>MAX_VIDEO_BYTES){
-    return note("subMsg","Le fichier dépasse la limite du stockage. Passe-le dans le Convertisseur 45 Mo.","bad");
+    return note("subMsg","Cette vidéo doit être normalisée avant le dépôt. Clique sur CONVERTIR MA VIDÉO. Convertir45 la ramènera automatiquement ici une fois validée.","warn");
   }
 
   $("sendSubmission").disabled=true;
@@ -1366,6 +1476,7 @@ $("sendSubmission").onclick=async()=>{
     $("subUploadProgress").textContent="Vidéo reçue à 100%.";
     $("subUploadMeterBar").style.width="100%";
 
+    sessionStorage.removeItem("rapJungleParticipationDraft");
     ["subName","subEmail","subCity","subSocial","subBio"].forEach(id=>$(id).value="");
     $("subVideo").value="";
     $("subPreviewFrame").classList.add("hidden");
@@ -1376,10 +1487,7 @@ $("sendSubmission").onclick=async()=>{
     participantVideoDuration=0;
   }catch(e){
     const raw=String(e?.message||e||"Erreur inconnue");
-    const friendly=/ProgressEvent|response code: n\/a|Failed to fetch|NetworkError|create upload/i.test(raw)
-      ?"Le navigateur n’a pas réussi à ouvrir la connexion d’envoi vidéo. Recharge la page puis réessaie."
-      :raw;
-    note("subMsg","Erreur : "+friendly,"bad");
+    note("subMsg","Erreur : "+raw,"bad");
   }finally{
     $("sendSubmission").disabled=false;
     $("sendSubmission").textContent="ENVOYER MA PARTICIPATION";
