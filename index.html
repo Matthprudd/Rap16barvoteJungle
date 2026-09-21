@@ -567,7 +567,7 @@ input:focus,select:focus,textarea:focus{
 
     <section id="aParticipants" class="adminTab hidden">
       <div class="panel"><h2 class="jungle-title">Ajouter un participant</h2><div class="row"><div class="grow"><label>Nom de scène</label><input id="manualName"></div><button id="addManual">AJOUTER</button></div></div>
-      <div class="panel"><h2 class="jungle-title">Participants officiels</h2><div id="adminParticipants"></div></div>
+      <div class="panel"><h2 class="jungle-title">Participants officiels</h2><div class="notice" style="margin-bottom:10px">Retirer du public masque le participant et enlève sa vidéo publique sans effacer ses votes. Pour une participation liée à une vidéo, la meilleure méthode est de la retirer depuis la section Participations, puis de la réapprouver plus tard au besoin.</div><div id="adminParticipants"></div></div>
     </section>
 
     <section id="aMedia" class="adminTab hidden">
@@ -1570,17 +1570,31 @@ $("toggleVoting").onclick=async()=>{try{await adminCall("toggle_voting",{challen
 
 function renderSubmissions(){
   const list=adminData.submissions||[];
-  $("submissionList").innerHTML=list.map(s=>`<article class="item"><div class="row" style="justify-content:space-between"><div><strong>${esc(s.name)}</strong><div class="small">${esc(s.email)}${s.city?" — "+esc(s.city):""}</div></div><span class="status">${esc(s.status)}</span></div>${s.social?`<div class="small">Réseaux : ${esc(s.social)}</div>`:""}${s.bio?`<p>${esc(s.bio)}</p>`:""}${s.video_signed_url?`<video class="media" src="${esc(s.video_signed_url)}" controls preload="auto" playsinline webkit-playsinline></video>`:""}<div class="row" style="margin-top:10px">${s.status==="pending"?`<button class="approve goodbtn" data-id="${esc(s.id)}">APPROUVER + CRÉER PARTICIPANT</button><button class="reject danger" data-id="${esc(s.id)}">REFUSER</button>`:""}</div></article>`).join("")||'<div class="small">Aucune participation.</div>';
+  $("submissionList").innerHTML=list.map(s=>`<article class="item"><div class="row" style="justify-content:space-between"><div><strong>${esc(s.name)}</strong><div class="small">${esc(s.email)}${s.city?" — "+esc(s.city):""}</div></div><span class="status">${esc(s.status)}</span></div>${s.social?`<div class="small">Réseaux : ${esc(s.social)}</div>`:""}${s.bio?`<p>${esc(s.bio)}</p>`:""}${s.video_signed_url?`<video class="media" src="${esc(s.video_signed_url)}" controls preload="auto" playsinline webkit-playsinline></video>`:""}<div class="row" style="margin-top:10px">${s.status==="pending"?`<button class="approve goodbtn" data-id="${esc(s.id)}">APPROUVER + CRÉER PARTICIPANT</button><button class="reject danger" data-id="${esc(s.id)}">REFUSER</button>`:s.status==="approved"?`<button class="revoke danger" data-id="${esc(s.id)}">RETIRER DU PUBLIC</button>`:`<button class="reapprove goodbtn" data-id="${esc(s.id)}">RÉAPPROUVER</button>`}</div></article>`).join("")||'<div class="small">Aucune participation.</div>';
   document.querySelectorAll(".approve").forEach(b=>b.onclick=async()=>{try{await adminCall("approve_submission",{submissionId:b.dataset.id});await refreshAdmin();await loadPublic()}catch(e){alert(e.message)}});
-  document.querySelectorAll(".reject").forEach(b=>b.onclick=async()=>{try{await adminCall("reject_submission",{submissionId:b.dataset.id});await refreshAdmin()}catch(e){alert(e.message)}});
+  document.querySelectorAll(".reject").forEach(b=>b.onclick=async()=>{if(!confirm("Refuser cette participation?"))return;try{await adminCall("reject_submission",{submissionId:b.dataset.id});await refreshAdmin();await loadPublic()}catch(e){alert(e.message)}});
+  document.querySelectorAll(".revoke").forEach(b=>b.onclick=async()=>{
+    if(!confirm("Retirer cette vidéo du public? La copie publique sera supprimée, le participant sera masqué et les votes existants seront conservés."))return;
+    try{await adminCall("revoke_submission",{submissionId:b.dataset.id});await refreshAdmin();await loadPublic()}catch(e){alert(e.message)}
+  });
+  document.querySelectorAll(".reapprove").forEach(b=>b.onclick=async()=>{
+    if(!confirm("Réapprouver cette participation et republier sa vidéo?"))return;
+    try{await adminCall("approve_submission",{submissionId:b.dataset.id});await refreshAdmin();await loadPublic()}catch(e){alert(e.message)}
+  });
 }
 $("addManual").onclick=async()=>{const name=$("manualName").value.trim();if(!name)return;try{await adminCall("add_participant",{challengeId:challenge.id,name});$("manualName").value="";await refreshAdmin();await loadPublic()}catch(e){alert(e.message)}};
 function renderParticipantsAdmin(){
   const votes=adminData.votes||[];
-  $("adminParticipants").innerHTML=(adminData.participants||[]).map(p=>{const n=votes.filter(v=>v.participant_id===p.id).length;return `<article class="item"><div class="row"><div class="grow"><label>Nom</label><input class="pname" data-id="${esc(p.id)}" value="${esc(p.name)}"></div><div><label>Votes</label><input value="${n}" readonly></div></div><div class="qr" id="aqr-${esc(p.id)}"></div><div class="code">${esc(location.href.split("?")[0]+"?vote="+p.code)}</div><div class="row" style="margin-top:10px"><button class="psave secondary" data-id="${esc(p.id)}">SAUVER</button><button class="pdel danger" data-id="${esc(p.id)}">SUPPRIMER</button></div></article>`}).join("");
+  $("adminParticipants").innerHTML=(adminData.participants||[]).map(p=>{const n=votes.filter(v=>v.participant_id===p.id).length;return `<article class="item"><div class="row" style="justify-content:space-between;align-items:center"><div><strong>${esc(p.name)}</strong><div class="small">Statut : ${esc(p.status||"approved")}</div></div><span class="status">${n} vote(s)</span></div><div class="row" style="margin-top:10px"><div class="grow"><label>Nom</label><input class="pname" data-id="${esc(p.id)}" value="${esc(p.name)}"></div></div><div class="qr" id="aqr-${esc(p.id)}"></div><div class="code">${esc(location.href.split("?")[0]+"?vote="+p.code)}</div><div class="row" style="margin-top:10px"><button class="psave secondary" data-id="${esc(p.id)}">SAUVER</button>${p.status==="approved"?`<button class="pdel danger" data-id="${esc(p.id)}">RETIRER DU PUBLIC</button>`:`<button class="prestore goodbtn" data-id="${esc(p.id)}">RESTAURER</button>`}</div></article>`}).join("");
   (adminData.participants||[]).forEach(p=>{const el=$("aqr-"+p.id);if(el)new QRCode(el,{text:location.href.split("?")[0]+"?vote="+p.code,width:140,height:140})});
   document.querySelectorAll(".psave").forEach(b=>b.onclick=async()=>{const inp=document.querySelector(`.pname[data-id="${CSS.escape(b.dataset.id)}"]`);try{await adminCall("update_participant",{participantId:b.dataset.id,name:inp.value.trim()});await refreshAdmin();await loadPublic()}catch(e){alert(e.message)}});
-  document.querySelectorAll(".pdel").forEach(b=>b.onclick=async()=>{if(!confirm("Supprimer ce participant?"))return;try{await adminCall("delete_participant",{participantId:b.dataset.id});await refreshAdmin();await loadPublic()}catch(e){alert(e.message)}});
+  document.querySelectorAll(".pdel").forEach(b=>b.onclick=async()=>{
+    if(!confirm("Retirer ce participant du public? Sa vidéo publique sera retirée et les votes existants seront conservés."))return;
+    try{await adminCall("delete_participant",{participantId:b.dataset.id});await refreshAdmin();await loadPublic()}catch(e){alert(e.message)}
+  });
+  document.querySelectorAll(".prestore").forEach(b=>b.onclick=async()=>{
+    try{await adminCall("restore_participant",{participantId:b.dataset.id});await refreshAdmin();await loadPublic()}catch(e){alert(e.message)}
+  });
 }
 
 let mediaPreviewUrl=null;
