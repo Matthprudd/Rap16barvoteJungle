@@ -417,6 +417,54 @@ input:focus,select:focus,textarea:focus{
     <article class="card"><div class="avatar">✓</div><h2>Voter</h2><p class="small">Choisis un participant et confirme ton vote avec ton nom et ton courriel.</p><button id="voteBtn">VOTER</button></article>
   </section>
   <section class="panel"><div class="row" style="justify-content:space-between;align-items:center"><div><h2 class="jungle-title" style="margin:0 0 5px">Challenge actif</h2><div id="homeChallenge" class="small">Chargement...</div></div><span class="status">SUPABASE CONNECTÉ</span></div></section>
+
+  <section class="panel" id="participantMonitorPanel">
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <div>
+        <h2 class="jungle-title" style="margin:0 0 5px">MONITEUR DES PARTICIPANTS</h2>
+        <div class="small">Les vidéos approuvées jouent ici automatiquement, une après l’autre.</div>
+      </div>
+      <span class="status" id="participantMonitorStatus">EN ATTENTE</span>
+    </div>
+
+    <video id="participantMonitorVideo"
+      class="media hidden"
+      controls
+      preload="metadata"
+      playsinline
+      webkit-playsinline
+      muted
+      style="margin-top:14px;display:block;width:100%;aspect-ratio:16/9;min-height:240px;background:#050607">
+    </video>
+
+    <div id="participantMonitorEmpty" class="notice" style="margin-top:12px">
+      Aucune vidéo de participant approuvée pour le moment.
+    </div>
+
+    <div class="row" style="margin-top:12px;justify-content:space-between;align-items:center">
+      <div>
+        <strong id="participantMonitorName">—</strong>
+        <div id="participantMonitorCounter" class="small"></div>
+      </div>
+      <div class="row">
+        <button id="participantPrev" class="secondary" type="button">PRÉCÉDENT</button>
+        <button id="participantPlay" class="goodbtn" type="button">LANCER</button>
+        <button id="participantNext" class="secondary" type="button">SUIVANT</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <div>
+        <h2 class="jungle-title" style="margin:0 0 5px">VIDÉOS DES PARTICIPANTS</h2>
+        <div class="small">Chaque vidéo approuvée apparaît aussi ici individuellement.</div>
+      </div>
+      <span class="status" id="publicVideoCount">0 VIDÉO</span>
+    </div>
+    <div id="publicVideoGallery" class="cards" style="margin-top:14px"></div>
+  </section>
+
 </main>
 
 <section id="participateView" class="hidden">
@@ -669,6 +717,116 @@ function renderPublicMedia(){
   }
 }
 
+
+let participantMonitorList=[];
+let participantMonitorIndex=0;
+
+function approvedParticipantVideos(){
+  return (participants||[]).filter(p=>p.status==="approved" && p.video_url);
+}
+
+function playParticipantMonitor(){
+  const v=$("participantMonitorVideo");
+  if(!v || !participantMonitorList.length)return;
+  v.muted=true;
+  const promise=v.play();
+  if(promise && promise.catch){
+    promise.then(()=>{
+      $("participantPlay").textContent="PAUSE";
+      $("participantMonitorStatus").textContent="EN ONDES";
+    }).catch(()=>{
+      $("participantPlay").textContent="LANCER";
+      $("participantMonitorStatus").textContent="PRÊT";
+    });
+  }
+}
+
+function renderParticipantMonitor(){
+  const v=$("participantMonitorVideo");
+  if(!v)return;
+
+  participantMonitorList=approvedParticipantVideos();
+
+  if(!participantMonitorList.length){
+    v.pause();
+    v.removeAttribute("src");
+    v.load();
+    v.classList.add("hidden");
+    $("participantMonitorEmpty").classList.remove("hidden");
+    $("participantMonitorName").textContent="—";
+    $("participantMonitorCounter").textContent="";
+    $("participantMonitorStatus").textContent="EN ATTENTE";
+    $("participantPlay").disabled=true;
+    $("participantPrev").disabled=true;
+    $("participantNext").disabled=true;
+    return;
+  }
+
+  $("participantPlay").disabled=false;
+  $("participantPrev").disabled=participantMonitorList.length<2;
+  $("participantNext").disabled=participantMonitorList.length<2;
+  $("participantMonitorEmpty").classList.add("hidden");
+  v.classList.remove("hidden");
+
+  if(participantMonitorIndex>=participantMonitorList.length)participantMonitorIndex=0;
+  const p=participantMonitorList[participantMonitorIndex];
+
+  if(v.getAttribute("src")!==p.video_url){
+    v.pause();
+    v.src=p.video_url;
+    v.load();
+  }
+
+  $("participantMonitorName").textContent=p.name||"Participant";
+  $("participantMonitorCounter").textContent=`Vidéo ${participantMonitorIndex+1} sur ${participantMonitorList.length}`;
+  $("participantMonitorStatus").textContent="PRÊT";
+  $("participantPlay").textContent="LANCER";
+
+  v.muted=true;
+  v.playsInline=true;
+
+  v.onended=()=>{
+    participantMonitorIndex=(participantMonitorIndex+1)%participantMonitorList.length;
+    renderParticipantMonitor();
+    setTimeout(playParticipantMonitor,150);
+  };
+
+  v.onerror=()=>{
+    $("participantMonitorStatus").textContent="ERREUR VIDÉO";
+    $("participantPlay").textContent="RÉESSAYER";
+  };
+
+  v.oncanplay=()=>{
+    $("participantMonitorStatus").textContent="PRÊT";
+  };
+
+  setTimeout(playParticipantMonitor,150);
+}
+
+$("participantPlay").onclick=()=>{
+  const v=$("participantMonitorVideo");
+  if(!v || !participantMonitorList.length)return;
+  if(v.paused){
+    playParticipantMonitor();
+  }else{
+    v.pause();
+    $("participantPlay").textContent="LANCER";
+    $("participantMonitorStatus").textContent="PAUSE";
+  }
+};
+
+$("participantNext").onclick=()=>{
+  if(!participantMonitorList.length)return;
+  participantMonitorIndex=(participantMonitorIndex+1)%participantMonitorList.length;
+  renderParticipantMonitor();
+};
+
+$("participantPrev").onclick=()=>{
+  if(!participantMonitorList.length)return;
+  participantMonitorIndex=(participantMonitorIndex-1+participantMonitorList.length)%participantMonitorList.length;
+  renderParticipantMonitor();
+};
+
 function renderPublicVideoGallery(){
   const el=$("publicVideoGallery");
   if(!el)return;
@@ -702,6 +860,8 @@ function renderPublicVideoGallery(){
 }
 
 function renderPublic(){
+  renderParticipantMonitor();
+  renderPublicVideoGallery();
   const label=challenge?`${challenge.name} — Thème : ${challenge.theme||"—"}${challenge.deadline?" — Date limite : "+challenge.deadline:""}`:"Aucun challenge actif";
   $("homeChallenge").textContent=label;$("voteChallenge").textContent=label;
   $("participantCards").innerHTML=participants.map(p=>`<article class="card ${selectedCode===p.code?"selected":""}"><div class="avatar">${esc((p.name||"?")[0].toUpperCase())}</div><h3>${esc(p.name)}</h3>${p.video_url?`<video class="media" src="${esc(p.video_url)}" controls preload="metadata" playsinline webkit-playsinline></video>`:""}<div class="qr" id="qr-${esc(p.id)}"></div><button class="choose" data-code="${esc(p.code)}">${selectedCode===p.code?"SÉLECTIONNÉ ✓":"CHOISIR"}</button></article>`).join("")||'<div class="notice">Aucun participant approuvé pour le moment.</div>';
