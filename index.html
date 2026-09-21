@@ -426,7 +426,8 @@ input:focus,select:focus,textarea:focus{
     <div style="margin-top:12px"><label>Présentation</label><textarea id="subBio"></textarea></div>
     <div style="margin-top:12px"><label>Vidéo 16 Bar</label><input id="subVideo" type="file" accept="video/*"></div>
     <div id="subPreviewFrame" class="hidden" style="margin-top:12px">
-      <video id="subPreview" class="media" controls preload="metadata" playsinline webkit-playsinline></video>
+      <video id="subPreview" class="media" controls preload="metadata" playsinline webkit-playsinline muted></video>
+      <button id="subPreviewPlay" type="button" class="goodbtn" style="width:100%;margin-top:8px">LANCER LA VIDÉO</button>
       <div id="subVideoCompat" class="small" style="margin-top:7px"></div>
     </div>
     <button id="sendSubmission" style="width:100%;margin-top:14px">ENVOYER MA PARTICIPATION</button>
@@ -666,6 +667,7 @@ function renderPublicVideoGallery(){
         preload="metadata"
         playsinline
         webkit-playsinline
+        style="display:block;width:100%;aspect-ratio:16/9;min-height:220px;background:#050607"
       ></video>
       <div class="row" style="margin-top:10px">
         <button class="galleryVote goodbtn" data-code="${esc(p.code)}">VOTER POUR ${esc(p.name)}</button>
@@ -699,11 +701,30 @@ $("backPublic").onclick=()=>show("homeView");
 $("adminBtn").onclick=()=>{show("adminView");renderAdminAuth()};
 
 let previewUrl=null;
+let participantVideoPlayable=false;
+
+async function tryPlayParticipantPreview(){
+  const v=$("subPreview");
+  try{
+    v.muted=true;
+    await v.play();
+    $("subPreviewPlay").textContent="VIDÉO EN LECTURE";
+    $("subPreviewPlay").classList.add("secondary");
+  }catch(e){
+    $("subPreviewPlay").textContent="LANCER LA VIDÉO";
+    $("subPreviewPlay").classList.remove("secondary");
+  }
+}
+
+$("subPreviewPlay").onclick=tryPlayParticipantPreview;
+
 $("subVideo").onchange=()=>{
   const f=$("subVideo").files?.[0];
   const v=$("subPreview");
   const frame=$("subPreviewFrame");
   const compat=$("subVideoCompat");
+  participantVideoPlayable=false;
+
   if(previewUrl)URL.revokeObjectURL(previewUrl);
 
   if(!f){
@@ -713,27 +734,47 @@ $("subVideo").onchange=()=>{
   }
 
   previewUrl=URL.createObjectURL(f);
-  v.src=previewUrl;
+  v.pause();
+  v.removeAttribute("src");
   v.load();
+  v.src=previewUrl;
+  v.muted=true;
+  v.playsInline=true;
   frame.classList.remove("hidden");
-  compat.textContent="Vérification de la piste vidéo…";
+  $("subPreviewPlay").textContent="LANCER LA VIDÉO";
+  $("subPreviewPlay").classList.remove("secondary");
+  compat.textContent="Chargement et vérification de la piste vidéo…";
+  compat.style.color="";
 
-  v.onloadedmetadata=()=>{
+  v.onloadedmetadata=async()=>{
     if(v.videoWidth>0 && v.videoHeight>0){
-      compat.textContent=`Vidéo détectée : ${v.videoWidth} × ${v.videoHeight}.`;
+      participantVideoPlayable=true;
+      compat.textContent=`Vidéo prête : ${v.videoWidth} × ${v.videoHeight}.`;
       compat.style.color="#9fdaa8";
+      await tryPlayParticipantPreview();
     }else{
-      compat.textContent="Aucune image vidéo décodable détectée. Le navigateur ne reconnaît probablement pas le codec vidéo.";
+      participantVideoPlayable=false;
+      compat.textContent="Le fichier contient de l’audio, mais aucune image vidéo décodable par ce navigateur.";
       compat.style.color="#ffb13b";
-      note("subMsg","Le fichier contient peut-être une piste vidéo HEVC/H.265 non compatible avec ce navigateur. Convertis-le en MP4 H.264/AAC avant l’envoi.","warn");
+      note("subMsg","Cette vidéo donnerait seulement du son. Utilise idéalement un MP4 H.264/AAC.","warn");
+    }
+  };
+
+  v.oncanplay=async()=>{
+    if(v.videoWidth>0 && v.videoHeight>0){
+      participantVideoPlayable=true;
+      await tryPlayParticipantPreview();
     }
   };
 
   v.onerror=()=>{
+    participantVideoPlayable=false;
     compat.textContent="Impossible de décoder la piste vidéo.";
     compat.style.color="#ffb13b";
-    note("subMsg","Cette vidéo ne peut pas être décodée ici. Utilise un MP4 H.264 avec audio AAC.","warn");
+    note("subMsg","La vidéo ne peut pas être lue. Essaie un MP4 encodé H.264 avec audio AAC.","warn");
   };
+
+  v.load();
 };
 $("sendSubmission").onclick=async()=>{
   if(!challenge)return note("subMsg","Aucun challenge actif.","bad");
@@ -741,6 +782,7 @@ $("sendSubmission").onclick=async()=>{
   if(!name)return note("subMsg","Entre ton nom ou nom de scène.","bad");
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return note("subMsg","Entre un courriel valide.","bad");
   if(!file)return note("subMsg","Ajoute ta vidéo.","bad");
+  if(!participantVideoPlayable)return note("subMsg","La vidéo doit pouvoir afficher l’image avant l’envoi. Appuie sur LANCER LA VIDÉO; si tu n’as que le son, utilise un MP4 H.264/AAC.","bad");
   $("sendSubmission").disabled=true;$("sendSubmission").textContent="ENVOI...";
   try{
     const id=uid("SUB"),ext=(file.name.split(".").pop()||"mp4").replace(/[^a-z0-9]/gi,""),path=challenge.id+"/"+id+"."+ext;
