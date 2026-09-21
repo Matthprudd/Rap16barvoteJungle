@@ -6,6 +6,7 @@
 <title>Rap Jungle × MEYDEN — 16 Bar Challenge</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tus-js-client@4/dist/tus.min.js"></script>
 <style>
 *{box-sizing:border-box}
 :root{
@@ -424,7 +425,12 @@ input:focus,select:focus,textarea:focus{
       <div><label>Instagram / TikTok / Facebook</label><input id="subSocial"></div>
     </div>
     <div style="margin-top:12px"><label>Présentation</label><textarea id="subBio"></textarea></div>
-    <div style="margin-top:12px"><label>Vidéo 16 Bar</label><input id="subVideo" type="file" accept="video/*"></div>
+    <div style="margin-top:12px"><label>Vidéo 16 Bar</label><input id="subVideo" type="file" accept="video/mp4,video/webm,video/quicktime,video/*">
+      <div class="small" style="margin-top:6px">
+        Les 16 Bars peuvent durer jusqu’à environ 4 minutes. L’envoi se fait maintenant en morceaux avec reprise automatique si la connexion coupe.
+        Limite actuelle : 50 Mo par fichier. Pour une meilleure compatibilité : MP4 H.264 + AAC.
+      </div>
+      <div id="subUploadProgress" class="small" style="margin-top:6px"></div></div>
     <div id="subPreviewFrame" class="hidden" style="margin-top:12px">
       <video id="subPreview" class="media" controls preload="metadata" playsinline webkit-playsinline muted></video>
       <button id="subPreviewPlay" type="button" class="goodbtn" style="width:100%;margin-top:8px">LANCER LA VIDÉO</button>
@@ -535,6 +541,9 @@ input:focus,select:focus,textarea:focus{
 const SUPABASE_URL='https://hixkezzjgxfzmymkfyko.supabase.co';
 const SUPABASE_KEY='sb_publishable_5yp_LpH40HLd5C4btrltyw_r7wUrSFS';
 const ADMIN_ENDPOINT=SUPABASE_URL+"/functions/v1/rj-admin";
+const UPLOAD_ENDPOINT=SUPABASE_URL+"/functions/v1/rj-upload-url";
+const STORAGE_TUS_ENDPOINT="https://hixkezzjgxfzmymkfyko.storage.supabase.co/storage/v1/upload/resumable";
+const MAX_VIDEO_BYTES=50*1024*1024;
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
 const $=id=>document.getElementById(id);
@@ -776,6 +785,67 @@ $("subVideo").onchange=()=>{
 
   v.load();
 };
+
+async function createSubmissionUpload(file){
+  const r=await fetch(UPLOAD_ENDPOINT,{
+    method:"POST",
+    headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY},
+    body:JSON.stringify({
+      challengeId:challenge.id,
+      filename:file.name,
+      fileSize:file.size
+    })
+  });
+  const j=await r.json();
+  if(!r.ok || j.error)throw new Error(j.error||"Impossible de préparer le téléversement.");
+  return j;
+}
+
+function uploadParticipantVideoTus(file, prep){
+  return new Promise(async(resolve,reject)=>{
+    if(!window.tus || !window.tus.Upload){
+      reject(new Error("Le module de téléversement vidéo n’a pas chargé. Recharge la page."));
+      return;
+    }
+
+    const upload=new tus.Upload(file,{
+      endpoint:STORAGE_TUS_ENDPOINT,
+      retryDelays:[0,3000,5000,10000,20000],
+      headers:{
+        "x-signature":prep.token,
+        "apikey":SUPABASE_KEY
+      },
+      uploadDataDuringCreation:true,
+      removeFingerprintOnSuccess:true,
+      chunkSize:6*1024*1024,
+      metadata:{
+        bucketName:"rap-jungle-submissions",
+        objectName:prep.path,
+        contentType:file.type||"video/mp4",
+        cacheControl:"3600"
+      },
+      onError:(error)=>reject(error),
+      onProgress:(bytesUploaded,bytesTotal)=>{
+        const pct=Math.max(0,Math.min(100,Math.round((bytesUploaded/bytesTotal)*100)));
+        $("subUploadProgress").textContent=`Téléversement : ${pct}% — ${Math.round(bytesUploaded/1024/1024)} / ${Math.round(bytesTotal/1024/1024)} Mo`;
+        $("sendSubmission").textContent=`ENVOI ${pct}%`;
+      },
+      onSuccess:()=>{
+        $("subUploadProgress").textContent="Téléversement terminé : 100%.";
+        resolve(true);
+      }
+    });
+
+    try{
+      const previous=await upload.findPreviousUploads();
+      if(previous.length)upload.resumeFromPreviousUpload(previous[0]);
+      upload.start();
+    }catch(e){
+      reject(e);
+    }
+  });
+}
+
 $("sendSubmission").onclick=async()=>{
   if(!challenge)return note("subMsg","Aucun challenge actif.","bad");
   const name=$("subName").value.trim(),email=emailNorm($("subEmail").value),file=$("subVideo").files?.[0];
@@ -783,17 +853,41 @@ $("sendSubmission").onclick=async()=>{
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return note("subMsg","Entre un courriel valide.","bad");
   if(!file)return note("subMsg","Ajoute ta vidéo.","bad");
   if(!participantVideoPlayable)return note("subMsg","La vidéo doit pouvoir afficher l’image avant l’envoi. Appuie sur LANCER LA VIDÉO; si tu n’as que le son, utilise un MP4 H.264/AAC.","bad");
-  $("sendSubmission").disabled=true;$("sendSubmission").textContent="ENVOI...";
+  if(file.size>MAX_VIDEO_BYTES)return note("subMsg","Cette vidéo dépasse 50 Mo. La durée de 3–4 minutes est acceptée, mais sur le stockage actuel le fichier doit être compressé sous 50 Mo.","bad");
+
+  $("sendSubmission").disabled=true;
+  $("sendSubmission").textContent="PRÉPARATION...";
+  $("subUploadProgress").textContent="Préparation du téléversement longue durée…";
+
   try{
-    const id=uid("SUB"),ext=(file.name.split(".").pop()||"mp4").replace(/[^a-z0-9]/gi,""),path=challenge.id+"/"+id+"."+ext;
-    const up=await sb.storage.from("rap-jungle-submissions").upload(path,file,{upsert:false,contentType:file.type||"video/mp4"});
-    if(up.error)throw up.error;
-    const ins=await sb.from("rj_submissions").insert({id,challenge_id:challenge.id,name,email,city:$("subCity").value.trim()||null,social:$("subSocial").value.trim()||null,bio:$("subBio").value.trim()||null,video_path:path,status:"pending"});
+    const prep=await createSubmissionUpload(file);
+    await uploadParticipantVideoTus(file,prep);
+
+    const ins=await sb.from("rj_submissions").insert({
+      id:prep.id,
+      challenge_id:challenge.id,
+      name,
+      email,
+      city:$("subCity").value.trim()||null,
+      social:$("subSocial").value.trim()||null,
+      bio:$("subBio").value.trim()||null,
+      video_path:prep.path,
+      status:"pending"
+    });
     if(ins.error)throw ins.error;
-    note("subMsg","Participation envoyée. Un admin doit maintenant l'approuver.","good");
-    ["subName","subEmail","subCity","subSocial","subBio"].forEach(id=>$(id).value="");$("subVideo").value="";$("subPreviewFrame").classList.add("hidden");
-  }catch(e){note("subMsg","Erreur : "+e.message,"bad")}
-  finally{$("sendSubmission").disabled=false;$("sendSubmission").textContent="ENVOYER MA PARTICIPATION"}
+
+    note("subMsg","Participation envoyée au complet. Un admin doit maintenant l'approuver.","good");
+    $("subUploadProgress").textContent="Vidéo reçue à 100%.";
+    ["subName","subEmail","subCity","subSocial","subBio"].forEach(id=>$(id).value="");
+    $("subVideo").value="";
+    $("subPreviewFrame").classList.add("hidden");
+    participantVideoPlayable=false;
+  }catch(e){
+    note("subMsg","Erreur d’envoi : "+(e?.message||String(e))+". Tu peux réessayer : l’envoi longue durée est maintenant reprenable.","bad");
+  }finally{
+    $("sendSubmission").disabled=false;
+    $("sendSubmission").textContent="ENVOYER MA PARTICIPATION";
+  }
 };
 
 $("confirmVote").onclick=async()=>{
