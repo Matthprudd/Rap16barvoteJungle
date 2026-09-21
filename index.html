@@ -385,6 +385,10 @@ input:focus,select:focus,textarea:focus{
     transform-origin:top right;
   }
 }
+
+.upload-meter{height:14px;background:#0a100d;border:1px solid #3a6042;border-radius:999px;overflow:hidden;margin-top:8px}
+.upload-meter>div{height:100%;width:0%;background:linear-gradient(90deg,#2d8a4b,#ef8f1b);transition:width .2s ease}
+.file-check{margin-top:8px;padding:10px 12px;border-radius:12px;background:#0d1710;border:1px solid #34523c}
 </style>
 </head>
 <body>
@@ -427,10 +431,15 @@ input:focus,select:focus,textarea:focus{
     <div style="margin-top:12px"><label>Présentation</label><textarea id="subBio"></textarea></div>
     <div style="margin-top:12px"><label>Vidéo 16 Bar</label><input id="subVideo" type="file" accept="video/mp4,video/webm,video/quicktime,video/*">
       <div class="small" style="margin-top:6px">
-        Les 16 Bars peuvent durer jusqu’à environ 4 minutes. L’envoi se fait maintenant en morceaux avec reprise automatique si la connexion coupe.
-        Limite actuelle : 50 Mo par fichier. Pour une meilleure compatibilité : MP4 H.264 + AAC.
+        Les 16 Bars peuvent durer 1, 2, 3 ou 4 minutes : il n’y a aucune limite de durée.
+        Si la vidéo est trop lourde ou incompatible, l’application tente maintenant de la convertir automatiquement en MP4 H.264/AAC 720p avant l’envoi.
+        Ensuite, l’envoi se fait en morceaux avec reprise automatique. La vidéo finale doit rester sous 50 Mo.
       </div>
-      <div id="subUploadProgress" class="small" style="margin-top:6px"></div></div>
+      <div id="subFileInfo" class="file-check small hidden"></div>
+      <div id="subConvertStatus" class="small" style="margin-top:8px"></div>
+      <div id="subConvertMeter" class="upload-meter hidden"><div id="subConvertMeterBar"></div></div>
+      <div id="subUploadProgress" class="small" style="margin-top:8px"></div>
+      <div id="subUploadMeter" class="upload-meter hidden"><div id="subUploadMeterBar"></div></div></div>
     <div id="subPreviewFrame" class="hidden" style="margin-top:12px">
       <video id="subPreview" class="media" controls preload="metadata" playsinline webkit-playsinline muted></video>
       <button id="subPreviewPlay" type="button" class="goodbtn" style="width:100%;margin-top:8px">LANCER LA VIDÉO</button>
@@ -711,6 +720,14 @@ $("adminBtn").onclick=()=>{show("adminView");renderAdminAuth()};
 
 let previewUrl=null;
 let participantVideoPlayable=false;
+let participantVideoDuration=0;
+
+function humanMB(bytes){return (bytes/1024/1024).toFixed(1)+" Mo"}
+function humanTime(sec){
+  if(!Number.isFinite(sec))return "—";
+  const m=Math.floor(sec/60),s=Math.round(sec%60);
+  return `${m}:${String(s).padStart(2,"0")}`;
+}
 
 async function tryPlayParticipantPreview(){
   const v=$("subPreview");
@@ -732,14 +749,24 @@ $("subVideo").onchange=()=>{
   const v=$("subPreview");
   const frame=$("subPreviewFrame");
   const compat=$("subVideoCompat");
+  const info=$("subFileInfo");
   participantVideoPlayable=false;
+  participantVideoDuration=0;
 
   if(previewUrl)URL.revokeObjectURL(previewUrl);
 
   if(!f){
     frame.classList.add("hidden");
+    info.classList.add("hidden");
     compat.textContent="";
     return;
+  }
+
+  info.classList.remove("hidden");
+  info.innerHTML=`<strong>Fichier sélectionné</strong><br>Taille : ${humanMB(f.size)} · Durée : lecture en cours…`;
+
+  if(f.size>MAX_VIDEO_BYTES){
+    info.innerHTML+=`<br><span style="color:#ffb13b"><strong>Ce fichier dépasse la limite de stockage actuelle de 50 Mo.</strong> Il ne sera pas lancé vers 86 % pour échouer ensuite.</span>`;
   }
 
   previewUrl=URL.createObjectURL(f);
@@ -756,9 +783,13 @@ $("subVideo").onchange=()=>{
   compat.style.color="";
 
   v.onloadedmetadata=async()=>{
+    participantVideoDuration=Number(v.duration)||0;
+    info.innerHTML=`<strong>Fichier sélectionné</strong><br>Taille : ${humanMB(f.size)} · Durée : ${humanTime(participantVideoDuration)}
+      ${f.size>MAX_VIDEO_BYTES?'<br><span style="color:#ffb13b"><strong>Trop volumineux pour le stockage actuel (50 Mo max).</strong> La durée n’est PAS limitée à 1 minute : c’est seulement la taille du fichier qui bloque.</span>':''}`;
+
     if(v.videoWidth>0 && v.videoHeight>0){
       participantVideoPlayable=true;
-      compat.textContent=`Vidéo prête : ${v.videoWidth} × ${v.videoHeight}.`;
+      compat.textContent=`Vidéo prête : ${v.videoWidth} × ${v.videoHeight} · ${humanTime(participantVideoDuration)}.`;
       compat.style.color="#9fdaa8";
       await tryPlayParticipantPreview();
     }else{
@@ -772,7 +803,6 @@ $("subVideo").onchange=()=>{
   v.oncanplay=async()=>{
     if(v.videoWidth>0 && v.videoHeight>0){
       participantVideoPlayable=true;
-      await tryPlayParticipantPreview();
     }
   };
 
@@ -785,6 +815,10 @@ $("subVideo").onchange=()=>{
 
   v.load();
 };
+
+
+let ffmpegInstance=null;
+let ffmpegLoading=null;
 
 async function createSubmissionUpload(file){
   const r=await fetch(UPLOAD_ENDPOINT,{
@@ -801,7 +835,7 @@ async function createSubmissionUpload(file){
   return j;
 }
 
-function uploadParticipantVideoTus(file, prep){
+function uploadParticipantVideoTus(file,prep){
   return new Promise(async(resolve,reject)=>{
     if(!window.tus || !window.tus.Upload){
       reject(new Error("Le module de téléversement vidéo n’a pas chargé. Recharge la page."));
@@ -824,14 +858,24 @@ function uploadParticipantVideoTus(file, prep){
         contentType:file.type||"video/mp4",
         cacheControl:"3600"
       },
-      onError:(error)=>reject(error),
+      onError:(error)=>{
+        const msg=String(error?.message||error||"");
+        if(file.size>MAX_VIDEO_BYTES || /413|maximum|too large|size limit/i.test(msg)){
+          reject(new Error("Le fichier final dépasse la limite de 50 Mo du stockage actuel."));
+        }else{
+          reject(error);
+        }
+      },
       onProgress:(bytesUploaded,bytesTotal)=>{
         const pct=Math.max(0,Math.min(100,Math.round((bytesUploaded/bytesTotal)*100)));
-        $("subUploadProgress").textContent=`Téléversement : ${pct}% — ${Math.round(bytesUploaded/1024/1024)} / ${Math.round(bytesTotal/1024/1024)} Mo`;
+        $("subUploadMeter").classList.remove("hidden");
+        $("subUploadMeterBar").style.width=pct+"%";
+        $("subUploadProgress").textContent=`Téléversement : ${pct}% — ${humanMB(bytesUploaded)} / ${humanMB(bytesTotal)}`;
         $("sendSubmission").textContent=`ENVOI ${pct}%`;
       },
       onSuccess:()=>{
         $("subUploadProgress").textContent="Téléversement terminé : 100%.";
+        $("subUploadMeterBar").style.width="100%";
         resolve(true);
       }
     });
@@ -846,22 +890,148 @@ function uploadParticipantVideoTus(file, prep){
   });
 }
 
-$("sendSubmission").onclick=async()=>{
-  if(!challenge)return note("subMsg","Aucun challenge actif.","bad");
-  const name=$("subName").value.trim(),email=emailNorm($("subEmail").value),file=$("subVideo").files?.[0];
-  if(!name)return note("subMsg","Entre ton nom ou nom de scène.","bad");
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return note("subMsg","Entre un courriel valide.","bad");
-  if(!file)return note("subMsg","Ajoute ta vidéo.","bad");
-  if(!participantVideoPlayable)return note("subMsg","La vidéo doit pouvoir afficher l’image avant l’envoi. Appuie sur LANCER LA VIDÉO; si tu n’as que le son, utilise un MP4 H.264/AAC.","bad");
-  if(file.size>MAX_VIDEO_BYTES)return note("subMsg","Cette vidéo dépasse 50 Mo. La durée de 3–4 minutes est acceptée, mais sur le stockage actuel le fichier doit être compressé sous 50 Mo.","bad");
+async function ensureVideoConverter(){
+  if(ffmpegInstance)return ffmpegInstance;
+  if(ffmpegLoading)return ffmpegLoading;
 
-  $("sendSubmission").disabled=true;
-  $("sendSubmission").textContent="PRÉPARATION...";
-  $("subUploadProgress").textContent="Préparation du téléversement longue durée…";
+  ffmpegLoading=(async()=>{
+    $("subConvertStatus").textContent="Chargement du convertisseur automatique…";
+    $("subConvertMeter").classList.remove("hidden");
+    $("subConvertMeterBar").style.width="5%";
+
+    const modules=await Promise.all([
+      import("https://esm.sh/@ffmpeg/ffmpeg@0.12.15"),
+      import("https://esm.sh/@ffmpeg/util@0.12.2")
+    ]);
+    const FFmpeg=modules[0].FFmpeg;
+    const fetchFile=modules[1].fetchFile;
+    const toBlobURL=modules[1].toBlobURL;
+
+    const ffmpeg=new FFmpeg();
+    ffmpeg.on("progress",({progress})=>{
+      const pct=Math.max(8,Math.min(99,Math.round((progress||0)*100)));
+      $("subConvertMeterBar").style.width=pct+"%";
+      $("subConvertStatus").textContent=`Conversion automatique : ${pct}%`;
+    });
+
+    const baseURL="https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd";
+    await ffmpeg.load({
+      coreURL:await toBlobURL(`${baseURL}/ffmpeg-core.js`,"text/javascript"),
+      wasmURL:await toBlobURL(`${baseURL}/ffmpeg-core.wasm`,"application/wasm")
+    });
+
+    ffmpeg.__fetchFile=fetchFile;
+    ffmpegInstance=ffmpeg;
+    return ffmpeg;
+  })();
 
   try{
-    const prep=await createSubmissionUpload(file);
-    await uploadParticipantVideoTus(file,prep);
+    return await ffmpegLoading;
+  }finally{
+    ffmpegLoading=null;
+  }
+}
+
+function needsAutomaticConversion(file){
+  const ext=(file.name.split(".").pop()||"").toLowerCase();
+  const knownRisk=["mov","m4v","hevc","mkv","avi"].includes(ext);
+  const tooLarge=file.size>45*1024*1024;
+  const browserCannotDecode=!participantVideoPlayable;
+  return knownRisk || tooLarge || browserCannotDecode;
+}
+
+async function autoConvertParticipantVideo(file){
+  if(!needsAutomaticConversion(file)){
+    $("subConvertStatus").textContent="Vidéo déjà compatible : aucune conversion nécessaire.";
+    $("subConvertMeter").classList.add("hidden");
+    return file;
+  }
+
+  const ffmpeg=await ensureVideoConverter();
+  const ext=(file.name.split(".").pop()||"bin").replace(/[^a-z0-9]/gi,"").toLowerCase();
+  const inputName=`input.${ext||"bin"}`;
+  const outputName="converted.mp4";
+
+  $("subConvertStatus").textContent="Préparation de la conversion en MP4 720p…";
+  $("subConvertMeter").classList.remove("hidden");
+  $("subConvertMeterBar").style.width="8%";
+
+  await ffmpeg.writeFile(inputName,await ffmpeg.__fetchFile(file));
+
+  const dur=Math.max(1,participantVideoDuration||240);
+  const targetBytes=42*1024*1024;
+  const audioKbps=96;
+  const totalKbps=Math.floor((targetBytes*8)/(dur*1000));
+  const videoKbps=Math.max(420,Math.min(1400,totalKbps-audioKbps-80));
+
+  const code=await ffmpeg.exec([
+    "-i",inputName,
+    "-map","0:v:0",
+    "-map","0:a:0?",
+    "-vf","scale='min(1280,iw)':-2",
+    "-c:v","libx264",
+    "-preset","ultrafast",
+    "-pix_fmt","yuv420p",
+    "-b:v",`${videoKbps}k`,
+    "-maxrate",`${videoKbps}k`,
+    "-bufsize",`${videoKbps*2}k`,
+    "-c:a","aac",
+    "-b:a",`${audioKbps}k`,
+    "-movflags","+faststart",
+    outputName
+  ]);
+
+  if(code!==0){
+    throw new Error("Le convertisseur n’a pas réussi à traiter cette vidéo.");
+  }
+
+  const data=await ffmpeg.readFile(outputName);
+  const convertedBlob=new Blob([data.buffer],{type:"video/mp4"});
+  const converted=new File([convertedBlob],"16bar-converted.mp4",{type:"video/mp4",lastModified:Date.now()});
+
+  try{await ffmpeg.deleteFile(inputName)}catch{}
+  try{await ffmpeg.deleteFile(outputName)}catch{}
+
+  if(converted.size>MAX_VIDEO_BYTES){
+    throw new Error(`La conversion a produit ${humanMB(converted.size)}, encore au-dessus de 50 Mo.`);
+  }
+
+  $("subConvertMeterBar").style.width="100%";
+  $("subConvertStatus").textContent=`Conversion terminée : ${humanMB(file.size)} → ${humanMB(converted.size)}.`;
+  return converted;
+}
+
+$("sendSubmission").onclick=async()=>{
+  if(!challenge)return note("subMsg","Aucun challenge actif.","bad");
+
+  const name=$("subName").value.trim();
+  const email=emailNorm($("subEmail").value);
+  const sourceFile=$("subVideo").files?.[0];
+
+  if(!name)return note("subMsg","Entre ton nom ou nom de scène.","bad");
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return note("subMsg","Entre un courriel valide.","bad");
+  if(!sourceFile)return note("subMsg","Ajoute ta vidéo.","bad");
+
+  $("sendSubmission").disabled=true;
+  $("sendSubmission").textContent="ANALYSE...";
+  $("subUploadProgress").textContent="";
+  $("subUploadMeter").classList.add("hidden");
+  $("subConvertStatus").textContent="Analyse automatique de la vidéo…";
+
+  try{
+    const preparedFile=await autoConvertParticipantVideo(sourceFile);
+
+    if(preparedFile.size>MAX_VIDEO_BYTES){
+      throw new Error(`Le fichier final fait ${humanMB(preparedFile.size)} et dépasse 50 Mo.`);
+    }
+
+    $("sendSubmission").textContent="PRÉPARATION ENVOI...";
+    $("subUploadProgress").textContent="Préparation du téléversement…";
+    $("subUploadMeter").classList.remove("hidden");
+    $("subUploadMeterBar").style.width="0%";
+
+    const prep=await createSubmissionUpload(preparedFile);
+    await uploadParticipantVideoTus(preparedFile,prep);
 
     const ins=await sb.from("rj_submissions").insert({
       id:prep.id,
@@ -874,16 +1044,21 @@ $("sendSubmission").onclick=async()=>{
       video_path:prep.path,
       status:"pending"
     });
+
     if(ins.error)throw ins.error;
 
-    note("subMsg","Participation envoyée au complet. Un admin doit maintenant l'approuver.","good");
+    note("subMsg","Participation envoyée au complet. La vidéo a été préparée pour la plateforme et attend maintenant l’approbation admin.","good");
     $("subUploadProgress").textContent="Vidéo reçue à 100%.";
+    $("subUploadMeterBar").style.width="100%";
+
     ["subName","subEmail","subCity","subSocial","subBio"].forEach(id=>$(id).value="");
     $("subVideo").value="";
     $("subPreviewFrame").classList.add("hidden");
+    $("subFileInfo").classList.add("hidden");
     participantVideoPlayable=false;
+    participantVideoDuration=0;
   }catch(e){
-    note("subMsg","Erreur d’envoi : "+(e?.message||String(e))+". Tu peux réessayer : l’envoi longue durée est maintenant reprenable.","bad");
+    note("subMsg","Erreur : "+(e?.message||String(e)),"bad");
   }finally{
     $("sendSubmission").disabled=false;
     $("sendSubmission").textContent="ENVOYER MA PARTICIPATION";
