@@ -255,13 +255,32 @@ input:focus,select:focus,textarea:focus{
 .media{
   display:block;
   width:100%;
-  aspect-ratio:16/9;
-  min-height:220px;
-  max-height:520px;
+  height:auto;
+  min-height:0;
+  max-height:72vh;
   object-fit:contain;
   background:#050607;
   border-radius:16px;
   border:1px solid #324f39;
+}
+@media (min-width:900px){
+  .media{
+    width:min(100%,960px);
+    margin-left:auto;
+    margin-right:auto;
+    max-height:68vh;
+  }
+}
+.video-shell{
+  width:100%;
+  background:#050607;
+  border-radius:16px;
+  overflow:hidden;
+  border:1px solid #324f39;
+}
+.video-shell .media{
+  border:0;
+  border-radius:0;
 }
 .tabs{
   display:flex;
@@ -407,7 +426,7 @@ input:focus,select:focus,textarea:focus{
       </div>
       <span id="publicMonitorLive" class="status">HORS ONDES</span>
     </div>
-    <video id="publicMonitorVideo" class="media hidden" controls preload="metadata" playsinline webkit-playsinline style="margin-top:14px;width:100%"></video>
+    <video id="publicMonitorVideo" class="media hidden" controls preload="auto" playsinline webkit-playsinline style="margin-top:14px;width:100%"></video>
     <button id="publicMonitorPlay" class="goodbtn hidden" type="button" style="width:100%;margin-top:10px">LANCER LA VIDÉO</button>
     <div id="publicMonitorError" class="notice bad hidden"></div>
   </section>
@@ -429,11 +448,11 @@ input:focus,select:focus,textarea:focus{
     <video id="participantMonitorVideo"
       class="media hidden"
       controls
-      preload="metadata"
+      preload="auto"
       playsinline
       webkit-playsinline
       muted
-      style="margin-top:14px;display:block;width:100%;aspect-ratio:16/9;min-height:240px;background:#050607">
+      style="margin-top:14px;display:block;width:100%;background:#050607">
     </video>
 
     <div id="participantMonitorEmpty" class="notice" style="margin-top:12px">
@@ -501,7 +520,7 @@ input:focus,select:focus,textarea:focus{
       <div id="subUploadProgress" class="small" style="margin-top:8px"></div>
       <div id="subUploadMeter" class="upload-meter hidden"><div id="subUploadMeterBar"></div></div></div>
     <div id="subPreviewFrame" class="hidden" style="margin-top:12px">
-      <video id="subPreview" class="media" controls preload="metadata" playsinline webkit-playsinline muted></video>
+      <video id="subPreview" class="media" controls preload="auto" playsinline webkit-playsinline muted></video>
       <button id="subPreviewPlay" type="button" class="goodbtn" style="width:100%;margin-top:8px">LANCER LA VIDÉO</button>
       <div id="subVideoCompat" class="small" style="margin-top:7px"></div>
     </div>
@@ -575,7 +594,7 @@ input:focus,select:focus,textarea:focus{
         </div>
 
         <div id="mediaPreviewFrame" class="hidden" style="margin-top:14px">
-      <video id="mediaUploadPreview" class="media" controls preload="metadata" playsinline webkit-playsinline></video>
+      <video id="mediaUploadPreview" class="media" controls preload="auto" playsinline webkit-playsinline></video>
       <div id="mediaVideoCompat" class="small" style="margin-top:7px"></div>
     </div>
 
@@ -802,7 +821,8 @@ function renderParticipantMonitor(){
   v.onended=()=>{
     participantMonitorIndex=(participantMonitorIndex+1)%participantMonitorList.length;
     renderParticipantMonitor();
-    setTimeout(playParticipantMonitor,150);
+    preparePublicVideoElement(v);
+  setTimeout(playParticipantMonitor,150);
   };
 
   v.onerror=()=>{
@@ -841,6 +861,41 @@ $("participantPrev").onclick=()=>{
   renderParticipantMonitor();
 };
 
+
+function preparePublicVideoElement(v){
+  if(!v)return;
+
+  const applyNaturalRatio=()=>{
+    if(v.videoWidth>0 && v.videoHeight>0){
+      v.style.aspectRatio=`${v.videoWidth} / ${v.videoHeight}`;
+      v.style.height="auto";
+      v.style.minHeight="0";
+      v.style.objectFit="contain";
+    }
+  };
+
+  v.addEventListener("loadedmetadata",applyNaturalRatio,{once:false});
+  v.addEventListener("loadeddata",applyNaturalRatio,{once:false});
+
+  v.addEventListener("error",()=>{
+    const parent=v.parentElement;
+    if(parent && !parent.querySelector(".desktop-video-warning")){
+      const n=document.createElement("div");
+      n.className="notice warn desktop-video-warning";
+      n.style.marginTop="8px";
+      n.textContent="Cette ancienne vidéo n’est pas décodable correctement sur cet ordinateur. Elle doit être reconvertie avec la version actuelle de Convertir45.";
+      parent.appendChild(n);
+    }
+  });
+
+  // Chromium desktop sometimes needs an explicit load after dynamic insertion.
+  try{v.load()}catch{}
+}
+
+function prepareAllPublicVideos(){
+  document.querySelectorAll("video.media").forEach(preparePublicVideoElement);
+}
+
 function renderPublicVideoGallery(){
   const el=$("publicVideoGallery");
   if(!el)return;
@@ -854,10 +909,10 @@ function renderPublicVideoGallery(){
         class="media participant-public-video"
         src="${esc(p.video_url)}"
         controls
-        preload="metadata"
+        preload="auto"
         playsinline
         webkit-playsinline
-        style="display:block;width:100%;aspect-ratio:16/9;min-height:220px;background:#050607"
+        style="display:block;width:100%;background:#050607"
       ></video>
       <div class="row" style="margin-top:10px">
         <button class="galleryVote goodbtn" data-code="${esc(p.code)}">VOTER POUR ${esc(p.name)}</button>
@@ -876,9 +931,10 @@ function renderPublicVideoGallery(){
 function renderPublic(){
   renderParticipantMonitor();
   renderPublicVideoGallery();
+  setTimeout(prepareAllPublicVideos,0);
   const label=challenge?`${challenge.name} — Thème : ${challenge.theme||"—"}${challenge.deadline?" — Date limite : "+challenge.deadline:""}`:"Aucun challenge actif";
   $("homeChallenge").textContent=label;$("voteChallenge").textContent=label;
-  $("participantCards").innerHTML=participants.map(p=>`<article class="card ${selectedCode===p.code?"selected":""}"><div class="avatar">${esc((p.name||"?")[0].toUpperCase())}</div><h3>${esc(p.name)}</h3>${p.video_url?`<video class="media" src="${esc(p.video_url)}" controls preload="metadata" playsinline webkit-playsinline></video>`:""}<div class="qr" id="qr-${esc(p.id)}"></div><button class="choose" data-code="${esc(p.code)}">${selectedCode===p.code?"SÉLECTIONNÉ ✓":"CHOISIR"}</button></article>`).join("")||'<div class="notice">Aucun participant approuvé pour le moment.</div>';
+  $("participantCards").innerHTML=participants.map(p=>`<article class="card ${selectedCode===p.code?"selected":""}"><div class="avatar">${esc((p.name||"?")[0].toUpperCase())}</div><h3>${esc(p.name)}</h3>${p.video_url?`<video class="media" src="${esc(p.video_url)}" controls preload="auto" playsinline webkit-playsinline></video>`:""}<div class="qr" id="qr-${esc(p.id)}"></div><button class="choose" data-code="${esc(p.code)}">${selectedCode===p.code?"SÉLECTIONNÉ ✓":"CHOISIR"}</button></article>`).join("")||'<div class="notice">Aucun participant approuvé pour le moment.</div>';
   participants.forEach(p=>{const el=$("qr-"+p.id);if(el&&window.QRCode)new QRCode(el,{text:location.href.split("?")[0]+"?vote="+encodeURIComponent(p.code),width:120,height:120})});
   document.querySelectorAll(".choose").forEach(b=>b.onclick=()=>{selectedCode=b.dataset.code;renderPublic()});
   const p=participants.find(x=>x.code===selectedCode);
@@ -1108,7 +1164,7 @@ function handleReturnFromConverter(){
         v.src=previewUrl;
         v.muted=false;
         v.playsInline=true;
-        v.preload="metadata";
+        v.preload="auto";
         v.load();
 
         $("subPreviewFrame").classList.remove("hidden");
@@ -1514,7 +1570,7 @@ $("toggleVoting").onclick=async()=>{try{await adminCall("toggle_voting",{challen
 
 function renderSubmissions(){
   const list=adminData.submissions||[];
-  $("submissionList").innerHTML=list.map(s=>`<article class="item"><div class="row" style="justify-content:space-between"><div><strong>${esc(s.name)}</strong><div class="small">${esc(s.email)}${s.city?" — "+esc(s.city):""}</div></div><span class="status">${esc(s.status)}</span></div>${s.social?`<div class="small">Réseaux : ${esc(s.social)}</div>`:""}${s.bio?`<p>${esc(s.bio)}</p>`:""}${s.video_signed_url?`<video class="media" src="${esc(s.video_signed_url)}" controls preload="metadata" playsinline webkit-playsinline></video>`:""}<div class="row" style="margin-top:10px">${s.status==="pending"?`<button class="approve goodbtn" data-id="${esc(s.id)}">APPROUVER + CRÉER PARTICIPANT</button><button class="reject danger" data-id="${esc(s.id)}">REFUSER</button>`:""}</div></article>`).join("")||'<div class="small">Aucune participation.</div>';
+  $("submissionList").innerHTML=list.map(s=>`<article class="item"><div class="row" style="justify-content:space-between"><div><strong>${esc(s.name)}</strong><div class="small">${esc(s.email)}${s.city?" — "+esc(s.city):""}</div></div><span class="status">${esc(s.status)}</span></div>${s.social?`<div class="small">Réseaux : ${esc(s.social)}</div>`:""}${s.bio?`<p>${esc(s.bio)}</p>`:""}${s.video_signed_url?`<video class="media" src="${esc(s.video_signed_url)}" controls preload="auto" playsinline webkit-playsinline></video>`:""}<div class="row" style="margin-top:10px">${s.status==="pending"?`<button class="approve goodbtn" data-id="${esc(s.id)}">APPROUVER + CRÉER PARTICIPANT</button><button class="reject danger" data-id="${esc(s.id)}">REFUSER</button>`:""}</div></article>`).join("")||'<div class="small">Aucune participation.</div>';
   document.querySelectorAll(".approve").forEach(b=>b.onclick=async()=>{try{await adminCall("approve_submission",{submissionId:b.dataset.id});await refreshAdmin();await loadPublic()}catch(e){alert(e.message)}});
   document.querySelectorAll(".reject").forEach(b=>b.onclick=async()=>{try{await adminCall("reject_submission",{submissionId:b.dataset.id});await refreshAdmin()}catch(e){alert(e.message)}});
 }
@@ -1693,7 +1749,7 @@ function renderFacebook(){const ps=adminData.participants||[];$("fbParticipant")
 function genFb(){const ps=adminData.participants||[],p=ps.find(x=>x.id===$("fbParticipant").value)||ps[0],type=$("fbType").value;let txt="";
 if(type==="challenge")txt=`RAP JUNGLE — ${challenge?.name||"16 Bar Challenge"}\n\nThème : ${challenge?.theme||"Libre"}\n\nLe challenge est ouvert. Tu veux participer? Ouvre l'application Rap Jungle et dépose ton 16 Bar.\n\nTu veux voter? Utilise l'application officielle.\n\n${location.href.split("?")[0]}`;
 else if(p)txt=`RAP JUNGLE — 16 BAR CHALLENGE\n\n${p.name} est officiellement en compétition.\n\nThème : ${challenge?.theme||"Libre"}\n\nRegarde son 16 Bar et vote ici :\n${location.href.split("?")[0]+"?vote="+p.code}\n\nUn courriel = un vote.`;
-$("fbCaption").value=txt;$("fbText").textContent=txt;$("fbMedia").innerHTML=p?.video_url?`<video src="${esc(p.video_url)}" controls preload="metadata" playsinline webkit-playsinline></video>`:"";$("fbPreview").classList.remove("hidden")}
+$("fbCaption").value=txt;$("fbText").textContent=txt;$("fbMedia").innerHTML=p?.video_url?`<video src="${esc(p.video_url)}" controls preload="auto" playsinline webkit-playsinline></video>`:"";$("fbPreview").classList.remove("hidden")}
 $("genFb").onclick=genFb;$("fbParticipant").onchange=genFb;$("fbType").onchange=genFb;
 $("copyFb").onclick=async()=>{await navigator.clipboard.writeText($("fbCaption").value);alert("Texte copié")};
 $("openFb").onclick=()=>window.open("https://www.facebook.com/groups/2832754326740368","_blank");
