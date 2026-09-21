@@ -54,6 +54,16 @@ textarea{min-height:120px;resize:vertical}
 
 <main id="homeView">
   <section class="hero"><h1>16 Bar Challenge</h1><p>Participe au challenge ou vote pour ton MC préféré.</p></section>
+  <section id="publicMonitorPanel" class="panel">
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <div>
+        <h2 id="publicMonitorTitle" style="margin:0 0 5px">MONITEUR RAP JUNGLE</h2>
+        <div id="publicMonitorStatus" class="small">Aucune vidéo en diffusion pour le moment.</div>
+      </div>
+      <span id="publicMonitorLive" class="status">HORS ONDES</span>
+    </div>
+    <video id="publicMonitorVideo" class="media hidden" controls playsinline style="margin-top:14px;width:100%"></video>
+  </section>
   <section class="cards">
     <article class="card"><div class="avatar">16</div><h2>Participer</h2><p class="small">Remplis ta fiche et dépose ta vidéo. Un admin doit l'approuver avant publication.</p><button id="participateBtn">PARTICIPER</button></article>
     <article class="card"><div class="avatar">✓</div><h2>Voter</h2><p class="small">Choisis un participant et confirme ton vote avec ton nom et ton courriel.</p><button id="voteBtn">VOTER</button></article>
@@ -99,6 +109,7 @@ textarea{min-height:120px;resize:vertical}
       <button class="tab active" data-tab="aChallenge">CHALLENGE</button>
       <button class="tab" data-tab="aSubmissions">PARTICIPATIONS</button>
       <button class="tab" data-tab="aParticipants">PARTICIPANTS</button>
+      <button class="tab" data-tab="aMedia">MONITEUR</button>
       <button class="tab" data-tab="aFacebook">FACEBOOK</button>
       <button class="tab" data-tab="aResults">RÉSULTATS</button>
     </div>
@@ -112,6 +123,48 @@ textarea{min-height:120px;resize:vertical}
     <section id="aParticipants" class="adminTab hidden">
       <div class="panel"><h2>Ajouter un participant</h2><div class="row"><div class="grow"><label>Nom de scène</label><input id="manualName"></div><button id="addManual">AJOUTER</button></div></div>
       <div class="panel"><h2>Participants officiels</h2><div id="adminParticipants"></div></div>
+    </section>
+
+    <section id="aMedia" class="adminTab hidden">
+      <div class="panel">
+        <h2>Moniteur public</h2>
+        <p class="small">Téléverse une vidéo dans la bibliothèque, puis choisis laquelle doit être diffusée sur l’accueil public. Le changement est synchronisé par Supabase.</p>
+
+        <div class="grid">
+          <div>
+            <label>Titre de la vidéo</label>
+            <input id="mediaTitle" placeholder="Ex. Promo Challenge Vengeance">
+          </div>
+          <div>
+            <label>Fichier vidéo</label>
+            <input id="mediaFile" type="file" accept="video/*">
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:12px;align-items:center">
+          <label style="display:flex;align-items:center;gap:8px;margin:0"><input id="mediaAutoplay" type="checkbox" checked style="width:auto;min-height:auto"> Lecture automatique</label>
+          <label style="display:flex;align-items:center;gap:8px;margin:0"><input id="mediaLoop" type="checkbox" checked style="width:auto;min-height:auto"> Boucle</label>
+          <label style="display:flex;align-items:center;gap:8px;margin:0"><input id="mediaMuted" type="checkbox" checked style="width:auto;min-height:auto"> Muet au démarrage</label>
+        </div>
+
+        <video id="mediaUploadPreview" class="media hidden" controls playsinline style="margin-top:14px"></video>
+
+        <div class="row" style="margin-top:12px">
+          <button id="uploadMedia" class="goodbtn">AJOUTER À LA BIBLIOTHÈQUE</button>
+          <button id="stopMedia" class="danger">ARRÊTER LA DIFFUSION</button>
+        </div>
+        <div id="mediaMsg" class="notice hidden"></div>
+      </div>
+
+      <div class="panel">
+        <div class="row" style="justify-content:space-between;align-items:center">
+          <div>
+            <h2 style="margin:0 0 5px">Bibliothèque vidéo</h2>
+            <div class="small">La vidéo marquée EN ONDES est celle affichée au public.</div>
+          </div>
+        </div>
+        <div id="mediaLibrary"></div>
+      </div>
     </section>
 
     <section id="aFacebook" class="adminTab hidden">
@@ -137,7 +190,8 @@ function voteId(){return "RJ16-"+new Date().toISOString().slice(0,10).replaceAll
 function show(id){["homeView","participateView","voteView","adminView"].forEach(x=>$(x).classList.add("hidden"));$(id).classList.remove("hidden")}
 function note(id,text,type="good"){const e=$(id);e.textContent=text;e.className="notice "+type}
 let challenge=null,participants=[],selectedCode=new URLSearchParams(location.search).get("vote")||null;
-let adminData={submissions:[],participants:[],votes:[],active:null};
+let currentMedia=null;
+let adminData={submissions:[],participants:[],votes:[],media:[],active:null};
 let adminCred=null;
 
 async function loadPublic(){
@@ -148,7 +202,38 @@ async function loadPublic(){
     const p=await sb.from("rj_participants").select("*").eq("challenge_id",challenge.id).eq("status","approved").order("created_at",{ascending:true});
     if(!p.error)participants=p.data||[];
   }
+  await loadPublicMedia();
   renderPublic();
+}
+async function loadPublicMedia(){
+  const m=await sb.from("rj_public_media").select("*").eq("active",true).order("updated_at",{ascending:false}).limit(1);
+  if(m.error){console.warn(m.error);return}
+  currentMedia=m.data?.[0]||null;
+  renderPublicMedia();
+}
+function renderPublicMedia(){
+  const v=$("publicMonitorVideo"),title=$("publicMonitorTitle"),status=$("publicMonitorStatus"),live=$("publicMonitorLive");
+  if(!v)return;
+  if(!currentMedia){
+    v.pause();v.removeAttribute("src");v.load();v.classList.add("hidden");
+    title.textContent="MONITEUR RAP JUNGLE";
+    status.textContent="Aucune vidéo en diffusion pour le moment.";
+    live.textContent="HORS ONDES";
+    return;
+  }
+  title.textContent=currentMedia.title||"MONITEUR RAP JUNGLE";
+  status.textContent="Vidéo publique diffusée par l’équipe Rap Jungle.";
+  live.textContent="EN ONDES";
+  const changed=v.getAttribute("src")!==currentMedia.public_url;
+  if(changed)v.src=currentMedia.public_url;
+  v.loop=!!currentMedia.loop;
+  v.muted=!!currentMedia.muted;
+  v.autoplay=!!currentMedia.autoplay;
+  v.classList.remove("hidden");
+  if(currentMedia.autoplay){
+    const p=v.play();
+    if(p&&p.catch)p.catch(()=>{});
+  }
 }
 function renderPublic(){
   const label=challenge?`${challenge.name} — Thème : ${challenge.theme||"—"}${challenge.deadline?" — Date limite : "+challenge.deadline:""}`:"Aucun challenge actif";
@@ -227,7 +312,7 @@ async function refreshAdmin(){
   try{
     const d=await adminCall("dashboard");adminData=d;challenge=d.active||challenge;participants=d.participants||participants;
     $("chName").value=challenge?.name||"";$("chTheme").value=challenge?.theme||"";$("chDeadline").value=challenge?.deadline||"";$("toggleVoting").textContent=challenge?.voting_open?"FERMER LES VOTES":"ROUVRIR LES VOTES";
-    renderSubmissions();renderParticipantsAdmin();renderResults();renderFacebook();renderPublic();
+    renderSubmissions();renderParticipantsAdmin();renderMediaAdmin();renderResults();renderFacebook();renderPublic();renderPublicMedia();
   }catch(e){alert(e.message)}
 }
 $("saveChallenge").onclick=async()=>{
@@ -249,6 +334,128 @@ function renderParticipantsAdmin(){
   document.querySelectorAll(".psave").forEach(b=>b.onclick=async()=>{const inp=document.querySelector(`.pname[data-id="${CSS.escape(b.dataset.id)}"]`);try{await adminCall("update_participant",{participantId:b.dataset.id,name:inp.value.trim()});await refreshAdmin();await loadPublic()}catch(e){alert(e.message)}});
   document.querySelectorAll(".pdel").forEach(b=>b.onclick=async()=>{if(!confirm("Supprimer ce participant?"))return;try{await adminCall("delete_participant",{participantId:b.dataset.id});await refreshAdmin();await loadPublic()}catch(e){alert(e.message)}});
 }
+
+let mediaPreviewUrl=null;
+$("mediaFile").onchange=()=>{
+  const f=$("mediaFile").files?.[0];
+  if(mediaPreviewUrl)URL.revokeObjectURL(mediaPreviewUrl);
+  if(f){
+    mediaPreviewUrl=URL.createObjectURL(f);
+    $("mediaUploadPreview").src=mediaPreviewUrl;
+    $("mediaUploadPreview").classList.remove("hidden");
+  }else{
+    $("mediaUploadPreview").classList.add("hidden");
+  }
+};
+
+$("uploadMedia").onclick=async()=>{
+  const file=$("mediaFile").files?.[0];
+  if(!file)return note("mediaMsg","Choisis une vidéo à téléverser.","bad");
+  $("uploadMedia").disabled=true;
+  $("uploadMedia").textContent="TÉLÉVERSEMENT...";
+  try{
+    const prep=await adminCall("create_media_upload",{filename:file.name});
+    const up=await sb.storage.from("rap-jungle-public").uploadToSignedUrl(prep.path,prep.token,file,{
+      contentType:file.type||"video/mp4"
+    });
+    if(up.error)throw up.error;
+
+    await adminCall("register_media",{
+      id:prep.id,
+      path:prep.path,
+      title:$("mediaTitle").value.trim(),
+      autoplay:$("mediaAutoplay").checked,
+      loop:$("mediaLoop").checked,
+      muted:$("mediaMuted").checked
+    });
+
+    $("mediaTitle").value="";
+    $("mediaFile").value="";
+    $("mediaUploadPreview").classList.add("hidden");
+    note("mediaMsg","Vidéo ajoutée à la bibliothèque. Clique DIFFUSER pour l’envoyer sur l’interface publique.","good");
+    await refreshAdmin();
+  }catch(e){
+    note("mediaMsg","Erreur : "+e.message,"bad");
+  }finally{
+    $("uploadMedia").disabled=false;
+    $("uploadMedia").textContent="AJOUTER À LA BIBLIOTHÈQUE";
+  }
+};
+
+$("stopMedia").onclick=async()=>{
+  try{
+    await adminCall("stop_media");
+    note("mediaMsg","Diffusion publique arrêtée.","good");
+    await refreshAdmin();
+    await loadPublicMedia();
+  }catch(e){note("mediaMsg","Erreur : "+e.message,"bad")}
+};
+
+function renderMediaAdmin(){
+  const list=adminData.media||[];
+  $("mediaLibrary").innerHTML=list.map(m=>`
+    <article class="item">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <div>
+          <strong>${esc(m.title||"Vidéo sans titre")}</strong>
+          <div class="small">${m.active?"EN ONDES":"En bibliothèque"}</div>
+        </div>
+        <span class="status">${m.active?"EN ONDES":"PRÊTE"}</span>
+      </div>
+      <video class="media" src="${esc(m.public_url)}" controls playsinline style="margin-top:10px"></video>
+      <div class="grid" style="margin-top:10px">
+        <div>
+          <label>Titre</label>
+          <input class="mediaTitleEdit" data-id="${esc(m.id)}" value="${esc(m.title||"")}">
+        </div>
+        <div>
+          <label>Réglages</label>
+          <div class="row" style="align-items:center">
+            <label style="display:flex;gap:6px;align-items:center;margin:0"><input class="mediaAutoEdit" data-id="${esc(m.id)}" type="checkbox" ${m.autoplay?"checked":""} style="width:auto;min-height:auto"> Auto</label>
+            <label style="display:flex;gap:6px;align-items:center;margin:0"><input class="mediaLoopEdit" data-id="${esc(m.id)}" type="checkbox" ${m.loop?"checked":""} style="width:auto;min-height:auto"> Boucle</label>
+            <label style="display:flex;gap:6px;align-items:center;margin:0"><input class="mediaMutedEdit" data-id="${esc(m.id)}" type="checkbox" ${m.muted?"checked":""} style="width:auto;min-height:auto"> Muet</label>
+          </div>
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="mediaActivate goodbtn" data-id="${esc(m.id)}">${m.active?"EN ONDES ✓":"DIFFUSER"}</button>
+        <button class="mediaSave secondary" data-id="${esc(m.id)}">SAUVER</button>
+        <button class="mediaDelete danger" data-id="${esc(m.id)}">SUPPRIMER</button>
+      </div>
+    </article>
+  `).join("")||'<div class="small">Aucune vidéo dans la bibliothèque.</div>';
+
+  document.querySelectorAll(".mediaActivate").forEach(b=>b.onclick=async()=>{
+    try{
+      await adminCall("activate_media",{mediaId:b.dataset.id});
+      await refreshAdmin();
+      await loadPublicMedia();
+    }catch(e){alert(e.message)}
+  });
+
+  document.querySelectorAll(".mediaSave").forEach(b=>b.onclick=async()=>{
+    const id=b.dataset.id;
+    const title=document.querySelector(`.mediaTitleEdit[data-id="${CSS.escape(id)}"]`)?.value||"";
+    const autoplay=!!document.querySelector(`.mediaAutoEdit[data-id="${CSS.escape(id)}"]`)?.checked;
+    const loop=!!document.querySelector(`.mediaLoopEdit[data-id="${CSS.escape(id)}"]`)?.checked;
+    const muted=!!document.querySelector(`.mediaMutedEdit[data-id="${CSS.escape(id)}"]`)?.checked;
+    try{
+      await adminCall("update_media",{mediaId:id,title,autoplay,loop,muted});
+      await refreshAdmin();
+      await loadPublicMedia();
+    }catch(e){alert(e.message)}
+  });
+
+  document.querySelectorAll(".mediaDelete").forEach(b=>b.onclick=async()=>{
+    if(!confirm("Supprimer définitivement cette vidéo de la bibliothèque?"))return;
+    try{
+      await adminCall("delete_media",{mediaId:b.dataset.id});
+      await refreshAdmin();
+      await loadPublicMedia();
+    }catch(e){alert(e.message)}
+  });
+}
+
 function renderResults(){
   const votes=adminData.votes||[],ps=adminData.participants||[];$("resultSummary").textContent=votes.length+" vote(s) enregistré(s)";
   $("resultCards").innerHTML=ps.map(p=>{const n=votes.filter(v=>v.participant_id===p.id).length;return `<article class="card"><h3>${esc(p.name)}</h3><div class="kpi">${n}</div><div class="small">vote${n===1?"":"s"}</div></article>`}).join("")
@@ -263,6 +470,10 @@ $("fbCaption").value=txt;$("fbText").textContent=txt;$("fbMedia").innerHTML=p?.v
 $("genFb").onclick=genFb;$("fbParticipant").onchange=genFb;$("fbType").onchange=genFb;
 $("copyFb").onclick=async()=>{await navigator.clipboard.writeText($("fbCaption").value);alert("Texte copié")};
 $("openFb").onclick=()=>window.open("https://www.facebook.com/groups/2832754326740368","_blank");
+
+sb.channel("rap-jungle-public-monitor")
+  .on("postgres_changes",{event:"*",schema:"public",table:"rj_public_media"},async()=>{await loadPublicMedia()})
+  .subscribe();
 
 loadPublic().then(()=>{if(selectedCode){show("voteView");renderPublic()}else show("homeView")});
 </script>
