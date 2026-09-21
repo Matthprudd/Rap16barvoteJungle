@@ -948,7 +948,7 @@ $("subVideo").onchange=()=>{
   info.innerHTML=`<strong>Fichier sélectionné</strong><br>Taille : ${humanMB(f.size)} · Durée : lecture en cours…`;
 
   if(f.size>MAX_VIDEO_BYTES){
-    info.innerHTML+=`<br><span style="color:#ffb13b"><strong>Ce fichier dépasse la limite de stockage actuelle de 50 Mo.</strong> Il ne sera pas lancé vers 86 % pour échouer ensuite.</span>`;
+    info.innerHTML+=`<br><span style="color:#ffb13b"><strong>Ce fichier dépasse la limite de stockage actuelle de 45 Mo.</strong> Il ne sera pas lancé vers 86 % pour échouer ensuite.</span>`;
   }
 
   previewUrl=URL.createObjectURL(f);
@@ -1180,73 +1180,29 @@ async function createSubmissionUpload(file){
   return j;
 }
 
-function uploadParticipantVideoTus(file,prep){
-  const runUpload=(endpoint)=>new Promise(async(resolve,reject)=>{
-    if(!window.tus || !window.tus.Upload){
-      reject(new Error("Le module de téléversement vidéo n’a pas chargé. Recharge la page."));
-      return;
-    }
+async function uploadParticipantVideoTus(file,prep){
+  $("subUploadMeter").classList.remove("hidden");
+  $("subUploadMeterBar").style.width="20%";
+  $("subUploadProgress").textContent="Envoi sécurisé de la vidéo vers Rap Jungle…";
+  $("sendSubmission").textContent="ENVOI...";
 
-    const upload=new tus.Upload(file,{
-      endpoint,
-      retryDelays:[0,2000,4000,8000,12000],
-      headers:{
-        "x-signature":prep.token
-      },
-      uploadDataDuringCreation:true,
-      removeFingerprintOnSuccess:true,
-      chunkSize:6*1024*1024,
-      metadata:{
-        bucketName:"rap-jungle-submissions",
-        objectName:prep.path,
+  const {data,error}=await sb.storage
+    .from("rap-jungle-submissions")
+    .uploadToSignedUrl(
+      prep.path,
+      prep.token,
+      file,
+      {
         contentType:file.type||"video/mp4",
         cacheControl:"3600"
-      },
-      onError:(error)=>{
-        const msg=String(error?.message||error||"");
-        if(file.size>MAX_VIDEO_BYTES || /413|maximum|too large|size limit/i.test(msg)){
-          reject(new Error("Le fichier final dépasse la limite de 50 Mo du stockage actuel."));
-        }else{
-          reject(error);
-        }
-      },
-      onProgress:(bytesUploaded,bytesTotal)=>{
-        const pct=Math.max(0,Math.min(100,Math.round((bytesUploaded/bytesTotal)*100)));
-        $("subUploadMeter").classList.remove("hidden");
-        $("subUploadMeterBar").style.width=pct+"%";
-        $("subUploadProgress").textContent=`Téléversement : ${pct}% — ${humanMB(bytesUploaded)} / ${humanMB(bytesTotal)}`;
-        $("sendSubmission").textContent=`ENVOI ${pct}%`;
-      },
-      onSuccess:()=>{
-        $("subUploadProgress").textContent="Téléversement terminé : 100%.";
-        $("subUploadMeterBar").style.width="100%";
-        resolve(true);
       }
-    });
+    );
 
-    try{
-      const previous=await upload.findPreviousUploads();
-      if(previous.length)upload.resumeFromPreviousUpload(previous[0]);
-      upload.start();
-    }catch(e){
-      reject(e);
-    }
-  });
+  if(error)throw error;
 
-  return (async()=>{
-    try{
-      // The normal project endpoint is more broadly compatible with mobile browsers/Vercel.
-      return await runUpload(STORAGE_TUS_ENDPOINT);
-    }catch(firstError){
-      const msg=String(firstError?.message||firstError||"");
-      // Network/CORS style failures often surface as ProgressEvent / response n/a.
-      if(/ProgressEvent|response code: n\/a|Failed to fetch|NetworkError|create upload/i.test(msg)){
-        $("subUploadProgress").textContent="Premier chemin bloqué par le navigateur. Nouvelle tentative automatique…";
-        return await runUpload(STORAGE_TUS_DIRECT_ENDPOINT);
-      }
-      throw firstError;
-    }
-  })();
+  $("subUploadMeterBar").style.width="100%";
+  $("subUploadProgress").textContent="Téléversement terminé : 100%.";
+  return true;
 }
 
 async function ensureVideoConverter(){
@@ -1387,7 +1343,7 @@ async function autoConvertParticipantVideo(file){
   try{await ffmpeg.deleteFile(outputName)}catch{}
 
   if(converted.size>MAX_VIDEO_BYTES){
-    throw new Error(`La conversion a produit ${humanMB(converted.size)}, encore au-dessus de 50 Mo.`);
+    throw new Error(`La conversion a produit ${humanMB(converted.size)}, encore au-dessus de 45 Mo.`);
   }
 
   $("subConvertMeterBar").style.width="100%";
