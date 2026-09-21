@@ -115,7 +115,7 @@ textarea{min-height:120px;resize:vertical}
     </section>
 
     <section id="aFacebook" class="adminTab hidden">
-      <div class="panel"><h2>Préparer une publication Facebook</h2><div class="grid"><div><label>Participant</label><select id="fbParticipant"></select></div><div><label>Publication</label><select id="fbType"><option value="participant">Participant</option><option value="challenge">Annonce générale</option></select></div></div><div style="margin-top:12px"><label>Texte</label><textarea id="fbCaption"></textarea></div><div class="row" style="margin-top:12px"><button id="genFb">GÉNÉRER</button><button id="copyFb" class="secondary">COPIER</button><button id="openFb" class="secondary">OUVRIR FACEBOOK</button></div><div id="fbPreview" class="fb hidden"><div id="fbMedia"></div><div id="fbText" class="fbtext"></div></div><div class="notice warn">La publication directe sur la Page Rap Jungle sera la prochaine connexion : elle nécessite les autorisations Meta de la Page. Le token Meta ne sera jamais placé dans ce HTML.</div></div>
+      <div class="panel"><h2>Préparer une publication Facebook</h2><div class="grid"><div><label>Participant</label><select id="fbParticipant"></select></div><div><label>Publication</label><select id="fbType"><option value="participant">Participant</option><option value="challenge">Annonce générale</option></select></div></div><div style="margin-top:12px"><label>Texte</label><textarea id="fbCaption"></textarea></div><div class="row" style="margin-top:12px"><button id="genFb">GÉNÉRER</button><button id="copyFb" class="secondary">COPIER</button><button id="openFb" class="secondary">OUVRIR RAP JUNGLE SUR FACEBOOK</button></div><div id="fbPreview" class="fb hidden"><div id="fbMedia"></div><div id="fbText" class="fbtext"></div></div><div class="notice warn">Le bouton ci-dessus ouvre directement le groupe Facebook officiel Rap Jungle. La publication automatique dans le groupe n’est pas activée : le texte est préparé dans l’app, puis l’admin ouvre le groupe Rap Jungle pour publier manuellement.</div></div>
     </section>
 
     <section id="aResults" class="adminTab hidden"><div class="panel"><div class="row" style="justify-content:space-between"><div><h2 style="margin:0">Résultats</h2><div id="resultSummary" class="small"></div></div><button id="exportCsv" class="secondary">EXPORT CSV</button></div><div id="resultCards" class="cards" style="margin-top:14px"></div></div></section>
@@ -262,7 +262,7 @@ else if(p)txt=`RAP JUNGLE — 16 BAR CHALLENGE\n\n${p.name} est officiellement e
 $("fbCaption").value=txt;$("fbText").textContent=txt;$("fbMedia").innerHTML=p?.video_url?`<video src="${esc(p.video_url)}" controls playsinline></video>`:"";$("fbPreview").classList.remove("hidden")}
 $("genFb").onclick=genFb;$("fbParticipant").onchange=genFb;$("fbType").onchange=genFb;
 $("copyFb").onclick=async()=>{await navigator.clipboard.writeText($("fbCaption").value);alert("Texte copié")};
-$("openFb").onclick=()=>window.open("https://www.facebook.com/","_blank");
+$("openFb").onclick=()=>window.open("https://www.facebook.com/groups/2832754326740368","_blank");
 
 loadPublic().then(()=>{if(selectedCode){show("voteView");renderPublic()}else show("homeView")});
 </script>
