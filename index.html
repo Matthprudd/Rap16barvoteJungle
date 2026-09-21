@@ -3,59 +3,66 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Rap Jungle × MEYDEN — 16 Bar Vote</title>
+<title>Rap Jungle × MEYDEN — 16 Bar Challenge</title>
+
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <style>
 *{box-sizing:border-box}
 :root{
-  --bg:#090a0c;--panel:#15171b;--panel2:#1d2025;--line:#30343c;
-  --text:#f5f5f5;--muted:#aeb3bb;--good:#2c965d;--bad:#9d4040;
+  --bg:#08090b;--panel:#15171b;--panel2:#1d2025;--line:#30343c;
+  --text:#f6f6f6;--muted:#aeb3bb;--good:#27935a;--bad:#9d4040;--warn:#9c7625;
 }
 body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,Helvetica,sans-serif}
-.wrap{max-width:1100px;margin:auto;padding:18px}
+.wrap{max-width:1160px;margin:auto;padding:16px}
 .top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px}
-.brand{font-weight:900;font-size:clamp(34px,7vw,66px);line-height:.9}
-.sub{color:var(--muted);letter-spacing:.12em;font-size:13px;margin-top:8px}
-button,a.btn{
-  border:0;border-radius:12px;min-height:46px;padding:11px 15px;
-  font-weight:800;cursor:pointer;background:#f1f1f1;color:#111;text-decoration:none;
-  display:inline-grid;place-items:center
+.brand{font-size:clamp(34px,7vw,68px);font-weight:900;line-height:.9}
+.sub{margin-top:8px;color:var(--muted);letter-spacing:.12em;font-size:13px}
+button,.btn{
+  min-height:46px;border:0;border-radius:12px;padding:11px 15px;font-weight:800;
+  cursor:pointer;background:#f1f1f1;color:#111;text-decoration:none;display:inline-grid;place-items:center
 }
-.secondary{background:#2a2e35!important;color:#fff!important}
+button:disabled{opacity:.5;cursor:not-allowed}
+.secondary{background:#2b2f36!important;color:#fff!important}
 .danger{background:#682929!important;color:#fff!important}
+.goodbtn{background:#1f7449!important;color:#fff!important}
+.warnbtn{background:#70591f!important;color:#fff!important}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px;margin:14px 0}
-.hero{text-align:center;padding:16px 0}
-.hero h1{font-size:clamp(32px,6vw,56px);margin:0 0 8px}
-.hero p{color:var(--muted);margin:0}
+.panel h2{margin-top:0}
+.hero{text-align:center;padding:18px 0}.hero h1{font-size:clamp(32px,6vw,58px);margin:0 0 8px}.hero p{color:var(--muted);margin:0}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
-.row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
-.grow{flex:1;min-width:220px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}.grow{flex:1;min-width:220px}
 label{display:block;color:var(--muted);font-size:13px;margin-bottom:6px}
-input,select{
-  width:100%;min-height:46px;background:#0e1013;color:#fff;
-  border:1px solid #373c44;border-radius:10px;padding:10px;font-size:16px
+input,select,textarea{
+  width:100%;min-height:46px;background:#0d0f12;color:#fff;border:1px solid #373c44;
+  border-radius:10px;padding:10px;font-size:16px
 }
+textarea{min-height:120px;resize:vertical}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:15px;text-align:center}
 .card.selected{outline:2px solid #fff}
-.avatar{
-  height:110px;border-radius:12px;background:linear-gradient(135deg,#23262c,#101215);
-  display:grid;place-items:center;font-size:46px;font-weight:900;margin-bottom:12px
-}
-.card h3{margin:8px 0;font-size:23px}
-.count{font-size:32px;font-weight:900}
+.avatar{height:100px;border-radius:12px;background:linear-gradient(135deg,#23262c,#101215);display:grid;place-items:center;font-size:44px;font-weight:900;margin-bottom:12px}
 .small{font-size:13px;color:var(--muted);line-height:1.45}
 .hidden{display:none!important}
 .notice{padding:13px;border-radius:12px;background:#20242a;margin:14px 0}
-.good{border:1px solid var(--good)}
-.bad{border:1px solid var(--bad)}
-.vote-summary{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:14px}
+.good{border:1px solid var(--good)}.bad{border:1px solid var(--bad)}.warn{border:1px solid var(--warn)}
+.vote-summary{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:14px}
 .qr{display:inline-block;background:#fff;padding:8px;border-radius:10px;margin:10px auto}
-.admin-card{border:1px solid var(--line);border-radius:14px;padding:14px;background:#111318;margin:10px 0}
 .status{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:6px 10px;font-size:12px}
-@media(max-width:600px){.wrap{padding:12px}.panel{padding:14px}.cards{grid-template-columns:1fr}}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 16px}
+.tab{background:#242830;color:#fff}.tab.active{background:#f1f1f1;color:#111}
+.media-preview{width:100%;max-height:360px;object-fit:contain;background:#08090b;border-radius:12px;border:1px solid var(--line)}
+.participation{border:1px solid var(--line);border-radius:14px;padding:14px;background:#111318;margin:12px 0}
+.kpi{font-size:34px;font-weight:900}
+.codebox{font-family:monospace;background:#0b0d10;border:1px solid var(--line);padding:10px;border-radius:10px;overflow-wrap:anywhere}
+.fb-preview{background:#fff;color:#111;border-radius:14px;overflow:hidden;max-width:540px;margin:10px auto}
+.fb-preview img,.fb-preview video{width:100%;display:block;max-height:520px;object-fit:cover;background:#111}
+.fb-copy{padding:14px;text-align:left;white-space:pre-wrap}
+@media(max-width:620px){.wrap{padding:12px}.panel{padding:14px}.cards{grid-template-columns:1fr}.top{align-items:flex-start}}
 </style>
 </head>
+
 <body>
 <div class="wrap">
   <header class="top">
@@ -63,580 +70,790 @@ input,select{
       <div class="brand">RAP JUNGLE</div>
       <div class="sub">16 BAR CHALLENGE × MEYDEN</div>
     </div>
-    <button id="adminEntry" class="secondary" type="button">ADMIN</button>
+    <div class="row">
+      <button id="publicHomeBtn" class="secondary" type="button">ACCUEIL</button>
+      <button id="adminEntry" class="secondary" type="button">ADMIN</button>
+    </div>
   </header>
 
-  <!-- PUBLIC -->
-  <main id="publicView">
+  <!-- PUBLIC HOME -->
+  <main id="publicHome">
     <section class="hero">
-      <h1>Vote officiel</h1>
-      <p>Inscris-toi, choisis ton participant et confirme ton vote.</p>
+      <h1>16 Bar Challenge</h1>
+      <p>Participe au challenge ou vote pour ton MC préféré.</p>
     </section>
 
-    <section class="panel">
-      <h2>1. Identification du votant</h2>
-      <div class="grid">
-        <div>
-          <label>Ton nom</label>
-          <input id="voterName" autocomplete="name" placeholder="Nom complet">
-        </div>
-        <div>
-          <label>Ton courriel</label>
-          <input id="voterEmail" type="email" autocomplete="email" placeholder="nom@courriel.com">
-        </div>
-      </div>
-      <p class="small">
-        Le courriel est utilisé pour limiter les doublons et pour identifier le vote.
-      </p>
+    <section class="cards">
+      <article class="card">
+        <div class="avatar">🎤</div>
+        <h2>Participer</h2>
+        <p class="small">Dépose ton 16 Bar, tes informations et ta vidéo. L’équipe Rap Jungle valide avant publication.</p>
+        <button id="goParticipate" type="button">PARTICIPER AU CHALLENGE</button>
+      </article>
+
+      <article class="card">
+        <div class="avatar">✓</div>
+        <h2>Voter</h2>
+        <p class="small">Entre ton nom et ton courriel, choisis un participant et confirme ton vote.</p>
+        <button id="goVote" type="button">VOTER</button>
+      </article>
     </section>
 
     <section class="panel">
       <div class="row" style="justify-content:space-between;align-items:center">
         <div>
-          <h2 style="margin-bottom:6px">2. Choisis ton participant</h2>
-          <div id="challengeInfo" class="small"></div>
+          <h2 style="margin-bottom:4px">Challenge actif</h2>
+          <div id="homeChallengeInfo" class="small"></div>
         </div>
-        <span id="publicStatus" class="status"></span>
+        <span id="homeModeStatus" class="status"></span>
       </div>
+    </section>
+  </main>
+
+  <!-- PARTICIPATE -->
+  <section id="participateView" class="hidden">
+    <section class="hero">
+      <h1>Participer au 16 Bar</h1>
+      <p>Dépose ta candidature. Rien n’est publié avant validation d’un admin.</p>
+    </section>
+
+    <section class="panel">
+      <div class="grid">
+        <div><label>Nom / nom de scène</label><input id="pName" placeholder="Nom de scène"></div>
+        <div><label>Courriel</label><input id="pEmail" type="email" placeholder="nom@courriel.com"></div>
+        <div><label>Ville</label><input id="pCity" placeholder="Montréal, Laval, etc."></div>
+        <div><label>Instagram / TikTok / Facebook</label><input id="pSocial" placeholder="@nom ou lien"></div>
+      </div>
+
+      <div style="margin-top:12px">
+        <label>Présentation / message</label>
+        <textarea id="pBio" placeholder="Présente-toi rapidement..."></textarea>
+      </div>
+
+      <div style="margin-top:12px">
+        <label>Vidéo du 16 Bar</label>
+        <input id="pVideo" type="file" accept="video/*">
+        <div id="videoHelp" class="small" style="margin-top:6px">En mode local, le fichier reste sur l’appareil. En mode Supabase, il est téléversé dans Storage.</div>
+      </div>
+
+      <video id="pVideoPreview" class="media-preview hidden" controls playsinline style="margin-top:12px"></video>
+
+      <button id="submitParticipation" type="button" style="width:100%;margin-top:14px">ENVOYER MA PARTICIPATION</button>
+      <div id="participationMsg" class="notice hidden"></div>
+    </section>
+  </section>
+
+  <!-- VOTE -->
+  <section id="voteView" class="hidden">
+    <section class="hero">
+      <h1>Vote officiel</h1>
+      <p>Un courriel = un vote par challenge.</p>
+    </section>
+
+    <section class="panel">
+      <h2>1. Identification</h2>
+      <div class="grid">
+        <div><label>Ton nom</label><input id="voterName" placeholder="Nom complet"></div>
+        <div><label>Ton courriel</label><input id="voterEmail" type="email" placeholder="nom@courriel.com"></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>2. Choisis ton participant</h2>
+      <div id="voteChallengeInfo" class="small"></div>
       <div id="participantCards" class="cards" style="margin-top:14px"></div>
     </section>
 
     <section class="panel">
-      <h2>3. Confirme ton vote</h2>
+      <h2>3. Confirme</h2>
       <div id="selectedSummary" class="vote-summary">Aucun participant sélectionné.</div>
       <button id="confirmVote" type="button" style="width:100%;margin-top:12px" disabled>CONFIRMER MON VOTE</button>
-      <div id="voteMessage" class="notice hidden" role="status" aria-live="polite"></div>
+      <div id="voteMessage" class="notice hidden"></div>
     </section>
-  </main>
+  </section>
 
-  <!-- ADMIN -->
+  <!-- ADMIN LOGIN -->
   <section id="adminView" class="hidden">
     <section class="panel">
       <div class="row" style="justify-content:space-between;align-items:center">
         <div>
-          <h2 style="margin-bottom:6px">Administration — Rap Jungle</h2>
-          <div class="small">Connexion réservée aux administrateurs.</div>
+          <h2 style="margin-bottom:4px">Administration</h2>
+          <div class="small">Matthieu Prudhomme / Gasper</div>
         </div>
-        <button id="backPublic" class="secondary" type="button">RETOUR AU VOTE</button>
+        <button id="adminBack" class="secondary" type="button">RETOUR PUBLIC</button>
       </div>
     </section>
 
     <section id="adminLoginPanel" class="panel">
       <h2>Connexion admin</h2>
       <div class="grid">
-        <div>
-          <label>Courriel administrateur</label>
-          <input id="adminEmail" type="email" autocomplete="username" placeholder="courriel@exemple.com">
-        </div>
-        <div>
-          <label>Code</label>
-          <input id="adminCode" type="password" inputmode="numeric" autocomplete="current-password" placeholder="Code à 4 chiffres">
-        </div>
+        <div><label>Courriel</label><input id="adminEmail" type="email" placeholder="courriel admin"></div>
+        <div><label>Code</label><input id="adminCode" type="password" inputmode="numeric" placeholder="Code"></div>
       </div>
       <button id="adminLoginBtn" type="button" style="width:100%;margin-top:12px">OUVRIR L’ADMIN</button>
-      <div id="adminLoginMsg" class="notice hidden" role="status" aria-live="polite"></div>
+      <div id="adminLoginMsg" class="notice hidden"></div>
     </section>
 
+    <!-- ADMIN APP -->
     <div id="adminProtected" class="hidden">
-    <section class="panel">
-      <div class="row" style="justify-content:space-between;align-items:center">
-        <div>
-          <h2 style="margin-bottom:6px">Session admin</h2>
+      <section class="panel">
+        <div class="row" style="justify-content:space-between;align-items:center">
           <div id="adminSessionName" class="small"></div>
+          <button id="adminLogoutBtn" class="secondary" type="button">DÉCONNEXION</button>
         </div>
-        <button id="adminLogoutBtn" class="secondary" type="button">DÉCONNEXION</button>
-      </div>
-    </section>
+      </section>
 
-    <section class="panel">
-      <h2>1. Challenge</h2>
-      <div class="grid">
-        <div>
-          <label>Nom du challenge</label>
-          <input id="adminChallengeName" value="16 Bar Challenge">
-        </div>
-        <div>
-          <label>Thème</label>
-          <input id="adminTheme" value="Vengeance">
-        </div>
+      <div class="tabs">
+        <button class="tab active" data-tab="tabChallenge" type="button">CHALLENGE</button>
+        <button class="tab" data-tab="tabSubmissions" type="button">PARTICIPATIONS</button>
+        <button class="tab" data-tab="tabParticipants" type="button">PARTICIPANTS</button>
+        <button class="tab" data-tab="tabFacebook" type="button">FACEBOOK</button>
+        <button class="tab" data-tab="tabResults" type="button">RÉSULTATS</button>
+        <button class="tab" data-tab="tabSettings" type="button">RÉGLAGES</button>
       </div>
-      <div class="row" style="margin-top:12px">
-        <button id="saveChallenge" type="button">ENREGISTRER</button>
-        <button id="toggleVoting" class="danger" type="button">FERMER LES VOTES</button>
-      </div>
-    </section>
 
-    <section class="panel">
-      <h2>2. Ajouter un participant</h2>
-      <div class="row">
-        <div class="grow">
-          <label>Nom / nom de scène</label>
-          <input id="newParticipant" placeholder="Ex. MC Exemple">
+      <!-- CHALLENGE -->
+      <section id="tabChallenge" class="adminTab">
+        <div class="panel">
+          <h2>Challenge actif</h2>
+          <div class="grid">
+            <div><label>Nom du challenge</label><input id="aChallengeName"></div>
+            <div><label>Thème</label><input id="aChallengeTheme"></div>
+            <div><label>Date limite</label><input id="aDeadline" type="date"></div>
+          </div>
+          <div class="row" style="margin-top:12px">
+            <button id="saveChallenge" type="button">ENREGISTRER</button>
+            <button id="toggleVoting" class="danger" type="button">FERMER LES VOTES</button>
+          </div>
         </div>
-        <button id="addParticipant" type="button">AJOUTER + QR</button>
-      </div>
-    </section>
+      </section>
 
-    <section class="panel">
-      <div class="row" style="justify-content:space-between;align-items:center">
-        <div>
-          <h2 style="margin-bottom:6px">3. Participants et résultats</h2>
-          <div class="small">Codes uniques, QR, liens et nombre de votes.</div>
+      <!-- SUBMISSIONS -->
+      <section id="tabSubmissions" class="adminTab hidden">
+        <div class="panel">
+          <h2>Participations reçues</h2>
+          <div id="submissionList"></div>
         </div>
-        <div class="row">
-          <button id="exportCsv" class="secondary" type="button">EXPORT CSV</button>
-          <button id="resetVotes" class="danger" type="button">REMETTRE À ZÉRO</button>
-        </div>
-      </div>
-      <div id="adminParticipants" style="margin-top:14px"></div>
-    </section>
+      </section>
 
-    <section class="panel">
-      <h2>4. Notifications courriel</h2>
-      <p class="small">
-        Destinataires prévus :<br>
-        Matthieu Prudhomme — matthieuprudhomme1984@gmail.com<br>
-        Gasper — drummondgaspe@gmail.com
-      </p>
-      <div class="notice">
-        Cette version HTML fonctionne seule pour l’interface, les QR, les votes et l’export.
-        Pour envoyer automatiquement de vrais courriels et centraliser les votes entre plusieurs appareils,
-        il faut brancher un service serveur externe. On ne peut pas mettre une clé secrète de courriel
-        directement dans un fichier HTML public sans la rendre visible.
-      </div>
-    </section>
+      <!-- PARTICIPANTS -->
+      <section id="tabParticipants" class="adminTab hidden">
+        <div class="panel">
+          <h2>Ajouter manuellement un participant</h2>
+          <div class="row">
+            <div class="grow"><label>Nom</label><input id="manualParticipantName" placeholder="Nom de scène"></div>
+            <button id="manualAddParticipant" type="button">AJOUTER</button>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Participants officiels</h2>
+          <div id="adminParticipants"></div>
+        </div>
+      </section>
+
+      <!-- FACEBOOK -->
+      <section id="tabFacebook" class="adminTab hidden">
+        <div class="panel">
+          <h2>Créer une publication Facebook</h2>
+          <div class="grid">
+            <div>
+              <label>Participant</label>
+              <select id="fbParticipant"></select>
+            </div>
+            <div>
+              <label>Type de publication</label>
+              <select id="fbType">
+                <option value="participant">Publication participant</option>
+                <option value="challenge">Annonce du challenge</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="margin-top:12px">
+            <label>Texte de la publication</label>
+            <textarea id="fbCaption"></textarea>
+          </div>
+
+          <div class="row" style="margin-top:12px">
+            <button id="generateFbPost" type="button">GÉNÉRER LA PUBLICATION</button>
+            <button id="copyFbCaption" class="secondary" type="button">COPIER LE TEXTE</button>
+            <button id="openFacebook" class="secondary" type="button">OUVRIR FACEBOOK</button>
+          </div>
+
+          <div id="fbPreviewWrap" class="fb-preview hidden" style="margin-top:16px">
+            <div id="fbPreviewMedia"></div>
+            <div id="fbPreviewText" class="fb-copy"></div>
+          </div>
+
+          <div class="notice warn">
+            Publication directe sur la Page Facebook : le bouton sécurisé doit passer par une fonction serveur Meta Graph API.
+            Un Page Access Token ne doit jamais être placé directement dans ce HTML public.
+            Ce fichier prépare déjà le texte, la vidéo, le lien et le QR. Un endpoint serveur peut être branché dans Réglages pour automatiser le dernier clic.
+          </div>
+
+          <button id="publishViaWebhook" class="goodbtn" type="button" style="width:100%">PUBLIER VIA LE CONNECTEUR SÉCURISÉ</button>
+          <div id="fbPublishMsg" class="notice hidden"></div>
+        </div>
+      </section>
+
+      <!-- RESULTS -->
+      <section id="tabResults" class="adminTab hidden">
+        <div class="panel">
+          <div class="row" style="justify-content:space-between;align-items:center">
+            <div>
+              <h2 style="margin-bottom:4px">Résultats</h2>
+              <div id="resultSummary" class="small"></div>
+            </div>
+            <button id="exportCsv" class="secondary" type="button">EXPORT CSV</button>
+          </div>
+          <div id="resultCards" class="cards" style="margin-top:14px"></div>
+        </div>
+      </section>
+
+      <!-- SETTINGS -->
+      <section id="tabSettings" class="adminTab hidden">
+        <div class="panel">
+          <h2>Mode de données</h2>
+          <div class="notice">
+            Sans Supabase : l’app fonctionne localement dans ce navigateur.<br>
+            Avec Supabase : challenges, participations, vidéos, participants et votes sont partagés entre tous les appareils.
+          </div>
+
+          <div class="grid">
+            <div><label>Supabase URL</label><input id="supabaseUrl" placeholder="https://xxxx.supabase.co"></div>
+            <div><label>Supabase ANON KEY</label><input id="supabaseAnon" placeholder="clé publique anon"></div>
+            <div><label>Bucket vidéos</label><input id="supabaseBucket" value="rap-jungle-videos"></div>
+            <div><label>Webhook publication Facebook sécurisé</label><input id="facebookWebhook" placeholder="https://.../api/facebook-publish"></div>
+          </div>
+
+          <div class="row" style="margin-top:12px">
+            <button id="saveSettings" type="button">ENREGISTRER LES RÉGLAGES</button>
+            <button id="testSupabase" class="secondary" type="button">TESTER SUPABASE</button>
+          </div>
+          <div id="settingsMsg" class="notice hidden"></div>
+        </div>
+
+        <div class="panel">
+          <h2>SQL Supabase à exécuter une seule fois</h2>
+          <textarea id="supabaseSql" readonly></textarea>
+          <button id="copySql" class="secondary" type="button" style="margin-top:10px">COPIER LE SQL</button>
+        </div>
+      </section>
     </div>
   </section>
 </div>
 
 <script>
 (() => {
-  const STORAGE_KEY = 'rap_jungle_single_html_v4';
   const $ = id => document.getElementById(id);
+  const APP_KEY = 'rap_jungle_all_in_one_v1';
+  const SETTINGS_KEY = 'rap_jungle_settings_v1';
+  const ADMIN_SESSION_KEY = 'rap_jungle_admin_session_v1';
 
-  const defaults = {
-    challenge: '16 Bar Challenge',
-    theme: 'Vengeance',
-    votingOpen: true,
-    participants: [
-      {id:'p1', name:'Participant 1', code:'RJ16-P001', votes:0},
-      {id:'p2', name:'Participant 2', code:'RJ16-P002', votes:0},
-      {id:'p3', name:'Participant 3', code:'RJ16-P003', votes:0},
-      {id:'p4', name:'Participant 4', code:'RJ16-P004', votes:0}
+  const ADMINS = [
+    {email:'matthieuprudhomme1984@gmail.com',code:'1984',name:'Matthieu Prudhomme'},
+    {email:'drummondgaspe@gmail.com',code:'4891',name:'Gasper'}
+  ];
+
+  const defaultState = {
+    challenge:{
+      id:'challenge-local-1',
+      name:'16 Bar Challenge',
+      theme:'Vengeance',
+      deadline:'',
+      votingOpen:true
+    },
+    submissions:[],
+    participants:[
+      {id:'p1',name:'Participant 1',code:'RJ16-P001',videoUrl:'',social:'',city:'',status:'approved'},
+      {id:'p2',name:'Participant 2',code:'RJ16-P002',videoUrl:'',social:'',city:'',status:'approved'}
     ],
-    votes: []
+    votes:[]
   };
 
   let state = loadState();
-  let selectedCode = new URLSearchParams(location.search).get('vote') || null;
+  let settings = loadSettings();
+  let selectedVoteCode = new URLSearchParams(location.search).get('vote') || null;
+  let localVideoObjectUrl = null;
+  let supabaseClient = null;
 
-  const ADMIN_SESSION_KEY = 'rap_jungle_admin_session_v1';
-
-  const ADMIN_USERS = [
-    {
-      email:'matthieuprudhomme1984@gmail.com',
-      code:'1984',
-      name:'Matthieu Prudhomme'
-    },
-    {
-      email:'drummondgaspe@gmail.com',
-      code:'4891',
-      name:'Gasper'
-    }
-  ];
-
-  function getAdminSession(){
-    try{
-      return JSON.parse(sessionStorage.getItem(ADMIN_SESSION_KEY) || 'null');
-    }catch{
-      return null;
-    }
-  }
-
-  function setAdminSession(user){
-    sessionStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify({
-      email:user.email,
-      name:user.name,
-      authenticatedAt:new Date().toISOString()
-    }));
-  }
-
-  function clearAdminSession(){
-    sessionStorage.removeItem(ADMIN_SESSION_KEY);
-  }
-
-  function showAdminMessage(text, ok){
-    const el = $('adminLoginMsg');
-    el.textContent = text;
-    el.className = 'notice ' + (ok ? 'good' : 'bad');
-  }
-
-  function renderAdminAccess(){
-    const session = getAdminSession();
-    if(session){
-      $('adminLoginPanel').classList.add('hidden');
-      $('adminProtected').classList.remove('hidden');
-      $('adminSessionName').textContent = 'Connecté : ' + session.name + ' — ' + session.email;
-      renderAdmin();
-    }else{
-      $('adminLoginPanel').classList.remove('hidden');
-      $('adminProtected').classList.add('hidden');
-      $('adminSessionName').textContent = '';
-    }
-  }
-
+  function clone(x){return JSON.parse(JSON.stringify(x))}
   function loadState(){
     try{
-      const x = JSON.parse(localStorage.getItem(STORAGE_KEY));
-      if(x && Array.isArray(x.participants) && Array.isArray(x.votes)) return x;
-    }catch{}
-    return JSON.parse(JSON.stringify(defaults));
+      const s=JSON.parse(localStorage.getItem(APP_KEY));
+      return s&&s.challenge&&Array.isArray(s.participants)&&Array.isArray(s.votes)?s:clone(defaultState);
+    }catch{return clone(defaultState)}
   }
-
-  function saveState(){
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  function saveState(){localStorage.setItem(APP_KEY,JSON.stringify(state))}
+  function loadSettings(){
+    try{return JSON.parse(localStorage.getItem(SETTINGS_KEY))||{url:'',anon:'',bucket:'rap-jungle-videos',facebookWebhook:''}}
+    catch{return{url:'',anon:'',bucket:'rap-jungle-videos',facebookWebhook:''}}
   }
-
-  function esc(s){
-    return String(s ?? '').replace(/[&<>"']/g, c => ({
-      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
-    }[c]));
+  function saveSettingsLocal(){localStorage.setItem(SETTINGS_KEY,JSON.stringify(settings))}
+  function normalizeEmail(v){return String(v||'').trim().toLowerCase()}
+  function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
+  function uid(prefix){
+    const a=new Uint8Array(5);crypto.getRandomValues(a);
+    return prefix+'-'+Array.from(a,b=>b.toString(16).padStart(2,'0')).join('').toUpperCase()
   }
-
-  function uniqueCode(prefix){
-    const a = new Uint8Array(5);
-    crypto.getRandomValues(a);
-    return prefix + '-' + Array.from(a,b=>b.toString(16).padStart(2,'0')).join('').toUpperCase();
+  function voteId(){
+    const d=new Date().toISOString().slice(0,10).replaceAll('-','');
+    return 'RJ16-'+d+'-'+uid('V').replace('V-','')
   }
-
-  function uniqueVoteId(){
-    const d = new Date().toISOString().slice(0,10).replaceAll('-','');
-    return 'RJ16-' + d + '-' + uniqueCode('V').replace('V-','');
-  }
-
   function participantLink(p){
-    const base = location.href.split('?')[0].split('#')[0];
-    return base + '?vote=' + encodeURIComponent(p.code);
+    const base=location.href.split('?')[0].split('#')[0];
+    return base+'?vote='+encodeURIComponent(p.code)
+  }
+  function show(view){
+    ['publicHome','participateView','voteView','adminView'].forEach(id=>$(id).classList.add('hidden'));
+    $(view).classList.remove('hidden')
+  }
+  function msg(id,text,type='good'){
+    const el=$(id);el.textContent=text;el.className='notice '+type
+  }
+  function initSupabase(){
+    supabaseClient=null;
+    if(settings.url&&settings.anon&&window.supabase){
+      try{supabaseClient=window.supabase.createClient(settings.url,settings.anon)}catch{}
+    }
+    renderHome()
+  }
+  function dataMode(){return supabaseClient?'Supabase partagé':'Local navigateur'}
+
+  async function syncFromSupabase(){
+    if(!supabaseClient)return;
+    try{
+      const {data:c,error:ce}=await supabaseClient.from('rj_challenges').select('*').eq('active',true).order('created_at',{ascending:false}).limit(1);
+      if(ce)throw ce;
+      if(c?.[0]){
+        state.challenge={
+          id:c[0].id,name:c[0].name,theme:c[0].theme||'',deadline:c[0].deadline||'',votingOpen:c[0].voting_open
+        };
+        const {data:p,error:pe}=await supabaseClient.from('rj_participants').select('*').eq('challenge_id',state.challenge.id).order('created_at',{ascending:true});
+        if(pe)throw pe;
+        state.participants=(p||[]).map(x=>({id:x.id,name:x.name,code:x.code,videoUrl:x.video_url||'',social:x.social||'',city:x.city||'',status:x.status||'approved'}));
+
+        const {data:s,error:se}=await supabaseClient.from('rj_submissions').select('*').eq('challenge_id',state.challenge.id).order('created_at',{ascending:false});
+        if(!se)state.submissions=(s||[]).map(x=>({...x}));
+
+        const {data:v,error:ve}=await supabaseClient.from('rj_votes').select('*').eq('challenge_id',state.challenge.id);
+        if(!ve)state.votes=(v||[]).map(x=>({
+          voteId:x.vote_id,voterName:x.voter_name,email:x.voter_email,participantId:x.participant_id,participantName:x.participant_name,date:x.created_at
+        }));
+        saveState();
+      }
+    }catch(e){console.warn('Supabase sync failed',e)}
   }
 
-  function normalizeEmail(v){
-    return String(v || '').trim().toLowerCase();
+  // PUBLIC NAV
+  $('publicHomeBtn').addEventListener('click',()=>{show('publicHome');renderHome()});
+  $('goParticipate').addEventListener('click',()=>show('participateView'));
+  $('goVote').addEventListener('click',()=>{show('voteView');renderVote()});
+
+  function renderHome(){
+    $('homeChallengeInfo').textContent=`${state.challenge.name} — Thème : ${state.challenge.theme||'—'}${state.challenge.deadline?' — Date limite : '+state.challenge.deadline:''}`;
+    $('homeModeStatus').textContent=dataMode()
   }
 
-  function renderPublic(){
-    $('challengeInfo').textContent = state.challenge + (state.theme ? ' — Thème : ' + state.theme : '');
-    $('publicStatus').textContent = state.votingOpen ? 'VOTES OUVERTS' : 'VOTES FERMÉS';
+  // PARTICIPATION
+  $('pVideo').addEventListener('change',()=>{
+    const f=$('pVideo').files?.[0];
+    if(localVideoObjectUrl)URL.revokeObjectURL(localVideoObjectUrl);
+    if(f){
+      localVideoObjectUrl=URL.createObjectURL(f);
+      $('pVideoPreview').src=localVideoObjectUrl;
+      $('pVideoPreview').classList.remove('hidden')
+    }else{
+      $('pVideoPreview').classList.add('hidden')
+    }
+  });
 
-    $('participantCards').innerHTML = state.participants.map(p => `
-      <article class="card ${selectedCode===p.code?'selected':''}">
+  $('submitParticipation').addEventListener('click',async()=>{
+    const name=$('pName').value.trim(),email=normalizeEmail($('pEmail').value),city=$('pCity').value.trim(),social=$('pSocial').value.trim(),bio=$('pBio').value.trim(),file=$('pVideo').files?.[0];
+    if(!name)return msg('participationMsg','Entre ton nom ou nom de scène.','bad');
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return msg('participationMsg','Entre un courriel valide.','bad');
+    if(!file)return msg('participationMsg','Ajoute ta vidéo du 16 Bar.','bad');
+
+    const submission={
+      id:uid('SUB'),challenge_id:state.challenge.id,name,email,city,social,bio,
+      video_url:'',status:'pending',created_at:new Date().toISOString()
+    };
+
+    try{
+      if(supabaseClient){
+        const ext=(file.name.split('.').pop()||'mp4').replace(/[^a-z0-9]/gi,'');
+        const path=`${state.challenge.id}/${submission.id}.${ext}`;
+        const up=await supabaseClient.storage.from(settings.bucket||'rap-jungle-videos').upload(path,file,{upsert:false});
+        if(up.error)throw up.error;
+        const pub=supabaseClient.storage.from(settings.bucket||'rap-jungle-videos').getPublicUrl(path);
+        submission.video_url=pub.data.publicUrl;
+
+        const ins=await supabaseClient.from('rj_submissions').insert({
+          id:submission.id,challenge_id:submission.challenge_id,name,email,city,social,bio,
+          video_url:submission.video_url,status:'pending'
+        });
+        if(ins.error)throw ins.error;
+      }else{
+        submission.video_url='LOCAL_FILE_NOT_SHARED';
+      }
+
+      state.submissions.unshift(submission);saveState();
+      msg('participationMsg','Participation envoyée. Elle doit maintenant être approuvée par un admin.','good');
+      ['pName','pEmail','pCity','pSocial','pBio'].forEach(id=>$(id).value='');
+      $('pVideo').value='';$('pVideoPreview').classList.add('hidden')
+    }catch(e){msg('participationMsg','Erreur : '+e.message,'bad')}
+  });
+
+  // VOTE
+  function renderVote(){
+    $('voteChallengeInfo').textContent=`${state.challenge.name} — Thème : ${state.challenge.theme||'—'}`;
+    $('participantCards').innerHTML=state.participants.map(p=>`
+      <article class="card ${selectedVoteCode===p.code?'selected':''}">
         <div class="avatar">${esc((p.name||'?')[0].toUpperCase())}</div>
         <h3>${esc(p.name)}</h3>
-        <div class="qr" id="qr-public-${p.id}"></div>
-        <div class="small">Code : ${esc(p.code)}</div>
-        <button type="button" class="chooseBtn" data-code="${esc(p.code)}">
-          ${selectedCode===p.code ? 'SÉLECTIONNÉ ✓' : 'CHOISIR'}
-        </button>
-      </article>
-    `).join('');
+        ${p.videoUrl&&p.videoUrl!=='LOCAL_FILE_NOT_SHARED'?`<video class="media-preview" src="${esc(p.videoUrl)}" controls playsinline></video>`:''}
+        <div class="qr" id="qr-vote-${esc(p.id)}"></div>
+        <button class="chooseVote" data-code="${esc(p.code)}" type="button">${selectedVoteCode===p.code?'SÉLECTIONNÉ ✓':'CHOISIR'}</button>
+      </article>`).join('')||'<div class="notice">Aucun participant approuvé.</div>';
 
-    state.participants.forEach(p => {
-      const el = $('qr-public-'+p.id);
-      if(el && window.QRCode){
-        el.innerHTML='';
-        new QRCode(el,{
-          text: participantLink(p),
-          width:120,
-          height:120,
-          correctLevel:QRCode.CorrectLevel.H
-        });
+    state.participants.forEach(p=>{
+      const el=$('qr-vote-'+p.id);if(el&&window.QRCode){el.innerHTML='';new QRCode(el,{text:participantLink(p),width:120,height:120,correctLevel:QRCode.CorrectLevel.H})}
+    });
+    document.querySelectorAll('.chooseVote').forEach(b=>b.addEventListener('click',()=>{selectedVoteCode=b.dataset.code;renderVote()}));
+    const p=state.participants.find(x=>x.code===selectedVoteCode);
+    $('selectedSummary').innerHTML=p?`Tu votes pour <strong>${esc(p.name)}</strong>.`:'Aucun participant sélectionné.';
+    $('confirmVote').disabled=!p||!state.challenge.votingOpen
+  }
+
+  $('confirmVote').addEventListener('click',async()=>{
+    const name=$('voterName').value.trim(),email=normalizeEmail($('voterEmail').value),p=state.participants.find(x=>x.code===selectedVoteCode);
+    if(!name)return msg('voteMessage','Entre ton nom.','bad');
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return msg('voteMessage','Entre un courriel valide.','bad');
+    if(!p)return msg('voteMessage','Choisis un participant.','bad');
+    if(!state.challenge.votingOpen)return msg('voteMessage','Les votes sont fermés.','bad');
+
+    try{
+      if(supabaseClient){
+        const {data:dup,error:de}=await supabaseClient.from('rj_votes').select('id').eq('challenge_id',state.challenge.id).eq('voter_email',email).limit(1);
+        if(de)throw de;
+        if(dup?.length)return msg('voteMessage','Ce courriel a déjà voté dans ce challenge.','bad');
+      }else if(state.votes.some(v=>normalizeEmail(v.email)===email)){
+        return msg('voteMessage','Ce courriel a déjà voté dans ce challenge.','bad')
       }
-    });
 
-    document.querySelectorAll('.chooseBtn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        selectedCode = btn.dataset.code;
-        renderPublic();
-        renderSelection();
-      });
-    });
+      const id=voteId(),vote={voteId:id,voterName:name,email,participantId:p.id,participantName:p.name,date:new Date().toISOString()};
+      if(supabaseClient){
+        const ins=await supabaseClient.from('rj_votes').insert({
+          vote_id:id,challenge_id:state.challenge.id,voter_name:name,voter_email:email,
+          participant_id:p.id,participant_name:p.name
+        });
+        if(ins.error)throw ins.error
+      }
+      state.votes.push(vote);saveState();
+      msg('voteMessage',`Vote confirmé pour ${p.name}. ID : ${id}`,'good');
+      renderResults()
+    }catch(e){msg('voteMessage','Erreur : '+e.message,'bad')}
+  });
 
-    renderSelection();
+  // ADMIN AUTH
+  function adminSession(){try{return JSON.parse(sessionStorage.getItem(ADMIN_SESSION_KEY)||'null')}catch{return null}}
+  function renderAdminAccess(){
+    const s=adminSession();
+    $('adminLoginPanel').classList.toggle('hidden',!!s);
+    $('adminProtected').classList.toggle('hidden',!s);
+    if(s){$('adminSessionName').textContent=`Connecté : ${s.name} — ${s.email}`;renderAllAdmin()}
+  }
+  $('adminEntry').addEventListener('click',()=>{show('adminView');renderAdminAccess()});
+  $('adminBack').addEventListener('click',()=>{show('publicHome');renderHome()});
+  $('adminLoginBtn').addEventListener('click',()=>{
+    const email=normalizeEmail($('adminEmail').value),code=$('adminCode').value.trim(),u=ADMINS.find(x=>normalizeEmail(x.email)===email&&x.code===code);
+    if(!u)return msg('adminLoginMsg','Courriel ou code invalide.','bad');
+    sessionStorage.setItem(ADMIN_SESSION_KEY,JSON.stringify({email:u.email,name:u.name}));
+    renderAdminAccess()
+  });
+  $('adminLogoutBtn').addEventListener('click',()=>{sessionStorage.removeItem(ADMIN_SESSION_KEY);renderAdminAccess()});
+
+  // TABS
+  document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));t.classList.add('active');
+    document.querySelectorAll('.adminTab').forEach(x=>x.classList.add('hidden'));$(t.dataset.tab).classList.remove('hidden')
+  }));
+
+  function renderAllAdmin(){
+    $('aChallengeName').value=state.challenge.name;$('aChallengeTheme').value=state.challenge.theme;$('aDeadline').value=state.challenge.deadline||'';
+    $('toggleVoting').textContent=state.challenge.votingOpen?'FERMER LES VOTES':'ROUVRIR LES VOTES';
+    renderSubmissions();renderAdminParticipants();renderFacebook();renderResults();renderSettings()
   }
 
-  function renderSelection(){
-    const p = state.participants.find(x => x.code === selectedCode);
-    if(p){
-      $('selectedSummary').innerHTML = `Tu votes pour <strong>${esc(p.name)}</strong>.`;
-      $('confirmVote').disabled = !state.votingOpen;
-    }else{
-      $('selectedSummary').textContent = 'Aucun participant sélectionné.';
-      $('confirmVote').disabled = true;
-    }
-  }
-
-  function showVoteMessage(text, ok){
-    const el = $('voteMessage');
-    el.textContent = text;
-    el.className = 'notice ' + (ok ? 'good' : 'bad');
-  }
-
-  $('confirmVote').addEventListener('click', () => {
-    const name = $('voterName').value.trim();
-    const email = normalizeEmail($('voterEmail').value);
-
-    if(!name){
-      showVoteMessage('Entre ton nom avant de voter.', false);
-      return;
-    }
-    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
-      showVoteMessage('Entre un courriel valide.', false);
-      return;
-    }
-    if(!selectedCode){
-      showVoteMessage('Choisis un participant.', false);
-      return;
-    }
-    if(!state.votingOpen){
-      showVoteMessage('Les votes sont fermés.', false);
-      return;
-    }
-
-    const duplicate = state.votes.find(v => normalizeEmail(v.email) === email);
-    if(duplicate){
-      showVoteMessage('Ce courriel a déjà voté dans ce challenge.', false);
-      return;
-    }
-
-    const p = state.participants.find(x => x.code === selectedCode);
-    if(!p){
-      showVoteMessage('Participant introuvable.', false);
-      return;
-    }
-
-    const voteId = uniqueVoteId();
-    p.votes += 1;
-
-    state.votes.push({
-      voteId,
-      voterName:name,
-      email,
-      participantId:p.id,
-      participantName:p.name,
-      participantCode:p.code,
-      challenge:state.challenge,
-      theme:state.theme,
-      date:new Date().toISOString()
-    });
-
+  // CHALLENGE ADMIN
+  $('saveChallenge').addEventListener('click',async()=>{
+    state.challenge.name=$('aChallengeName').value.trim()||'16 Bar Challenge';
+    state.challenge.theme=$('aChallengeTheme').value.trim();
+    state.challenge.deadline=$('aDeadline').value;
     saveState();
-    renderPublic();
-    renderAdmin();
-
-    showVoteMessage(
-      `Vote confirmé pour ${p.name}. Ton ID unique est ${voteId}.`,
-      true
-    );
+    try{
+      if(supabaseClient){
+        const payload={id:state.challenge.id,name:state.challenge.name,theme:state.challenge.theme,deadline:state.challenge.deadline||null,voting_open:state.challenge.votingOpen,active:true};
+        const up=await supabaseClient.from('rj_challenges').upsert(payload,{onConflict:'id'});
+        if(up.error)throw up.error
+      }
+      renderHome();renderAllAdmin()
+    }catch(e){alert(e.message)}
+  });
+  $('toggleVoting').addEventListener('click',async()=>{
+    state.challenge.votingOpen=!state.challenge.votingOpen;saveState();
+    if(supabaseClient)await supabaseClient.from('rj_challenges').update({voting_open:state.challenge.votingOpen}).eq('id',state.challenge.id);
+    renderAllAdmin();renderHome()
   });
 
-  $('adminEntry').addEventListener('click', () => {
-    $('publicView').classList.add('hidden');
-    $('adminView').classList.remove('hidden');
-    renderAdminAccess();
-  });
-
-
-  $('adminLoginBtn').addEventListener('click', () => {
-    const email = normalizeEmail($('adminEmail').value);
-    const code = String($('adminCode').value || '').trim();
-
-    const user = ADMIN_USERS.find(u => normalizeEmail(u.email) === email && u.code === code);
-
-    if(!user){
-      showAdminMessage('Courriel ou code administrateur invalide.', false);
-      return;
-    }
-
-    setAdminSession(user);
-    $('adminCode').value = '';
-    showAdminMessage('Connexion réussie.', true);
-    renderAdminAccess();
-  });
-
-  $('adminCode').addEventListener('keydown', (e) => {
-    if(e.key === 'Enter') $('adminLoginBtn').click();
-  });
-
-  $('adminLogoutBtn').addEventListener('click', () => {
-    clearAdminSession();
-    $('adminEmail').value = '';
-    $('adminCode').value = '';
-    renderAdminAccess();
-  });
-
-  $('backPublic').addEventListener('click', () => {
-    $('adminView').classList.add('hidden');
-    $('publicView').classList.remove('hidden');
-    renderPublic();
-  });
-
-  $('saveChallenge').addEventListener('click', () => {
-    state.challenge = $('adminChallengeName').value.trim() || '16 Bar Challenge';
-    state.theme = $('adminTheme').value.trim();
-    saveState();
-    renderPublic();
-    renderAdmin();
-  });
-
-  $('toggleVoting').addEventListener('click', () => {
-    state.votingOpen = !state.votingOpen;
-    saveState();
-    renderPublic();
-    renderAdmin();
-  });
-
-  $('addParticipant').addEventListener('click', () => {
-    const name = $('newParticipant').value.trim();
-    if(!name) return;
-
-    state.participants.push({
-      id: uniqueCode('P').toLowerCase(),
-      name,
-      code: uniqueCode('RJ16'),
-      votes:0
-    });
-
-    $('newParticipant').value = '';
-    saveState();
-    renderPublic();
-    renderAdmin();
-  });
-
-  $('resetVotes').addEventListener('click', () => {
-    if(!confirm('Remettre tous les votes à zéro ?')) return;
-    state.votes = [];
-    state.participants.forEach(p => p.votes = 0);
-    saveState();
-    renderPublic();
-    renderAdmin();
-  });
-
-  $('exportCsv').addEventListener('click', () => {
-    const rows = [[
-      'vote_id','nom_votant','courriel','participant',
-      'code_participant','challenge','theme','date'
-    ]];
-
-    state.votes.forEach(v => rows.push([
-      v.voteId,
-      v.voterName,
-      v.email,
-      v.participantName,
-      v.participantCode,
-      v.challenge,
-      v.theme,
-      v.date
-    ]));
-
-    const csv = rows.map(r => r.map(x => `"${String(x).replaceAll('"','""')}"`).join(',')).join('\n');
-    const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'});
-    const u = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = u;
-    a.download = 'rap-jungle-votes.csv';
-    a.click();
-    setTimeout(()=>URL.revokeObjectURL(u),1000);
-  });
-
-  function renderAdmin(){
-    $('adminChallengeName').value = state.challenge;
-    $('adminTheme').value = state.theme;
-    $('toggleVoting').textContent = state.votingOpen ? 'FERMER LES VOTES' : 'ROUVRIR LES VOTES';
-
-    $('adminParticipants').innerHTML = state.participants.map(p => `
-      <div class="admin-card">
-        <div class="row">
-          <div class="grow">
-            <label>Nom du participant</label>
-            <input class="editName" data-id="${esc(p.id)}" value="${esc(p.name)}">
-          </div>
-          <div style="min-width:170px">
-            <label>Code unique</label>
-            <input value="${esc(p.code)}" readonly>
-          </div>
-          <div style="min-width:90px">
-            <label>Votes</label>
-            <input value="${p.votes}" readonly>
-          </div>
+  // SUBMISSIONS
+  function renderSubmissions(){
+    $('submissionList').innerHTML=state.submissions.map(s=>`
+      <article class="participation">
+        <div class="row" style="justify-content:space-between;align-items:center">
+          <div><strong>${esc(s.name)}</strong><div class="small">${esc(s.email)} ${s.city?'— '+esc(s.city):''}</div></div>
+          <span class="status">${esc(s.status||'pending')}</span>
         </div>
-
-        <div class="qr" id="qr-admin-${p.id}"></div>
-
-        <div class="small" style="overflow-wrap:anywhere">
-          ${esc(participantLink(p))}
-        </div>
-
+        ${s.social?`<div class="small">Réseaux : ${esc(s.social)}</div>`:''}
+        ${s.bio?`<p>${esc(s.bio)}</p>`:''}
+        ${s.video_url&&s.video_url!=='LOCAL_FILE_NOT_SHARED'?`<video class="media-preview" src="${esc(s.video_url)}" controls playsinline></video>`:'<div class="notice warn">Vidéo locale non partagée. Connecte Supabase pour les dépôts publics réels.</div>'}
         <div class="row" style="margin-top:10px">
-          <button class="saveName secondary" data-id="${esc(p.id)}" type="button">SAUVER NOM</button>
-          <button class="copyLink secondary" data-link="${esc(participantLink(p))}" type="button">COPIER LIEN</button>
-          <button class="deleteParticipant danger" data-id="${esc(p.id)}" type="button">SUPPRIMER</button>
+          <button class="approveSub goodbtn" data-id="${esc(s.id)}" type="button">APPROUVER + CRÉER PARTICIPANT</button>
+          <button class="rejectSub danger" data-id="${esc(s.id)}" type="button">REFUSER</button>
         </div>
-      </div>
-    `).join('');
+      </article>`).join('')||'<div class="small">Aucune participation reçue.</div>';
 
-    state.participants.forEach(p => {
-      const el = $('qr-admin-'+p.id);
-      if(el && window.QRCode){
-        el.innerHTML='';
-        new QRCode(el,{
-          text:participantLink(p),
-          width:140,
-          height:140,
-          correctLevel:QRCode.CorrectLevel.H
-        });
-      }
-    });
-
-    document.querySelectorAll('.saveName').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const input = document.querySelector(`.editName[data-id="${CSS.escape(btn.dataset.id)}"]`);
-        const p = state.participants.find(x => x.id === btn.dataset.id);
-        if(p && input && input.value.trim()){
-          p.name = input.value.trim();
-          saveState();
-          renderPublic();
-          renderAdmin();
-        }
-      });
-    });
-
-    document.querySelectorAll('.copyLink').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        try{
-          await navigator.clipboard.writeText(btn.dataset.link);
-          btn.textContent = 'COPIÉ ✓';
-        }catch{
-          prompt('Copie ce lien :', btn.dataset.link);
-        }
-      });
-    });
-
-    document.querySelectorAll('.deleteParticipant').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const p = state.participants.find(x => x.id === btn.dataset.id);
-        if(!p) return;
-        if(!confirm('Supprimer '+p.name+' ?')) return;
-
-        state.participants = state.participants.filter(x => x.id !== btn.dataset.id);
-        state.votes = state.votes.filter(v => v.participantId !== btn.dataset.id);
-        if(selectedCode === p.code) selectedCode = null;
-        saveState();
-        renderPublic();
-        renderAdmin();
-      });
-    });
+    document.querySelectorAll('.approveSub').forEach(b=>b.addEventListener('click',()=>approveSubmission(b.dataset.id)));
+    document.querySelectorAll('.rejectSub').forEach(b=>b.addEventListener('click',()=>rejectSubmission(b.dataset.id)))
   }
 
-  renderPublic();
+  async function approveSubmission(id){
+    const s=state.submissions.find(x=>x.id===id);if(!s)return;
+    const p={id:uid('P'),name:s.name,code:uid('RJ16'),videoUrl:s.video_url||'',social:s.social||'',city:s.city||'',status:'approved'};
+    state.participants.push(p);s.status='approved';saveState();
+    if(supabaseClient){
+      await supabaseClient.from('rj_submissions').update({status:'approved'}).eq('id',id);
+      await supabaseClient.from('rj_participants').insert({
+        id:p.id,challenge_id:state.challenge.id,name:p.name,code:p.code,video_url:p.videoUrl,social:p.social,city:p.city,status:'approved'
+      })
+    }
+    renderAllAdmin();renderVote()
+  }
+  async function rejectSubmission(id){
+    const s=state.submissions.find(x=>x.id===id);if(!s)return;s.status='rejected';saveState();
+    if(supabaseClient)await supabaseClient.from('rj_submissions').update({status:'rejected'}).eq('id',id);
+    renderSubmissions()
+  }
+
+  // PARTICIPANTS ADMIN
+  $('manualAddParticipant').addEventListener('click',async()=>{
+    const name=$('manualParticipantName').value.trim();if(!name)return;
+    const p={id:uid('P'),name,code:uid('RJ16'),videoUrl:'',social:'',city:'',status:'approved'};
+    state.participants.push(p);saveState();
+    if(supabaseClient)await supabaseClient.from('rj_participants').insert({id:p.id,challenge_id:state.challenge.id,name:p.name,code:p.code,status:'approved'});
+    $('manualParticipantName').value='';renderAllAdmin();renderVote()
+  });
+
+  function renderAdminParticipants(){
+    $('adminParticipants').innerHTML=state.participants.map(p=>{
+      const count=state.votes.filter(v=>v.participantId===p.id).length;
+      return `<article class="participation">
+        <div class="row">
+          <div class="grow"><label>Nom</label><input class="editPName" data-id="${esc(p.id)}" value="${esc(p.name)}"></div>
+          <div><label>Votes</label><input value="${count}" readonly></div>
+        </div>
+        <div class="qr" id="qr-admin-${esc(p.id)}"></div>
+        <div class="codebox">${esc(participantLink(p))}</div>
+        <div class="row" style="margin-top:10px">
+          <button class="saveP secondary" data-id="${esc(p.id)}" type="button">SAUVER</button>
+          <button class="copyPLink secondary" data-link="${esc(participantLink(p))}" type="button">COPIER LIEN</button>
+          <button class="deleteP danger" data-id="${esc(p.id)}" type="button">SUPPRIMER</button>
+        </div>
+      </article>`
+    }).join('')||'<div class="small">Aucun participant.</div>';
+
+    state.participants.forEach(p=>{const el=$('qr-admin-'+p.id);if(el&&window.QRCode){el.innerHTML='';new QRCode(el,{text:participantLink(p),width:140,height:140,correctLevel:QRCode.CorrectLevel.H})}});
+    document.querySelectorAll('.saveP').forEach(b=>b.addEventListener('click',async()=>{
+      const p=state.participants.find(x=>x.id===b.dataset.id),inp=document.querySelector(`.editPName[data-id="${CSS.escape(b.dataset.id)}"]`);
+      if(p&&inp&&inp.value.trim()){p.name=inp.value.trim();saveState();if(supabaseClient)await supabaseClient.from('rj_participants').update({name:p.name}).eq('id',p.id);renderAllAdmin();renderVote()}
+    }));
+    document.querySelectorAll('.copyPLink').forEach(b=>b.addEventListener('click',()=>navigator.clipboard?.writeText(b.dataset.link).catch(()=>prompt('Copie :',b.dataset.link))));
+    document.querySelectorAll('.deleteP').forEach(b=>b.addEventListener('click',async()=>{
+      const p=state.participants.find(x=>x.id===b.dataset.id);if(!p||!confirm('Supprimer '+p.name+' ?'))return;
+      state.participants=state.participants.filter(x=>x.id!==p.id);saveState();
+      if(supabaseClient)await supabaseClient.from('rj_participants').delete().eq('id',p.id);
+      renderAllAdmin();renderVote()
+    }))
+  }
+
+  // FACEBOOK BUILDER
+  function renderFacebook(){
+    $('fbParticipant').innerHTML=state.participants.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
+    generateFacebookPost()
+  }
+  function generateFacebookPost(){
+    const type=$('fbType').value,p=state.participants.find(x=>x.id===$('fbParticipant').value)||state.participants[0];
+    let caption='';
+    if(type==='challenge'){
+      caption=`RAP JUNGLE — ${state.challenge.name}\n\nThème : ${state.challenge.theme||'Libre'}\n\nLe challenge est ouvert. Tu veux participer? Ouvre l’app Rap Jungle, dépose ton 16 Bar et attends la validation de l’équipe.\n\nTu veux voter? Utilise l’app officielle Rap Jungle.\n\n${location.href.split('?')[0]}`;
+    }else if(p){
+      caption=`RAP JUNGLE — 16 BAR CHALLENGE\n\n${p.name} est officiellement en compétition.\n\nThème : ${state.challenge.theme||'Libre'}\n\nRegarde son 16 Bar et vote ici :\n${participantLink(p)}\n\nUn courriel = un vote. Le scan du QR ne compte pas comme vote tant que le choix n’est pas confirmé.`;
+    }
+    $('fbCaption').value=caption;
+    $('fbPreviewText').textContent=caption;
+    $('fbPreviewMedia').innerHTML=p&&p.videoUrl&&p.videoUrl!=='LOCAL_FILE_NOT_SHARED'?`<video src="${esc(p.videoUrl)}" controls playsinline></video>`:'';
+    $('fbPreviewWrap').classList.remove('hidden')
+  }
+  $('generateFbPost').addEventListener('click',generateFacebookPost);
+  $('fbParticipant').addEventListener('change',generateFacebookPost);
+  $('fbType').addEventListener('change',generateFacebookPost);
+  $('copyFbCaption').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('fbCaption').value);alert('Texte copié')}catch{prompt('Copie le texte :',$('fbCaption').value)}});
+  $('openFacebook').addEventListener('click',()=>window.open('https://www.facebook.com/','_blank'));
+
+  $('publishViaWebhook').addEventListener('click',async()=>{
+    const webhook=settings.facebookWebhook?.trim();
+    if(!webhook)return msg('fbPublishMsg','Aucun webhook Facebook sécurisé configuré dans Réglages.','warn');
+    const p=state.participants.find(x=>x.id===$('fbParticipant').value)||null;
+    try{
+      const r=await fetch(webhook,{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          type:$('fbType').value,
+          caption:$('fbCaption').value,
+          participant:p,
+          challenge:state.challenge,
+          voteLink:p?participantLink(p):location.href.split('?')[0],
+          videoUrl:p?.videoUrl||''
+        })
+      });
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok)throw new Error(j.error||'Publication refusée');
+      msg('fbPublishMsg','Publication Facebook envoyée avec succès.','good')
+    }catch(e){msg('fbPublishMsg','Erreur publication : '+e.message,'bad')}
+  });
+
+  // RESULTS
+  function renderResults(){
+    $('resultSummary').textContent=`${state.votes.length} vote(s) enregistré(s)`;
+    $('resultCards').innerHTML=state.participants.map(p=>{
+      const n=state.votes.filter(v=>v.participantId===p.id).length;
+      return `<article class="card"><h3>${esc(p.name)}</h3><div class="kpi">${n}</div><div class="small">vote${n===1?'':'s'}</div></article>`
+    }).join('')
+  }
+  $('exportCsv').addEventListener('click',()=>{
+    const rows=[['vote_id','nom_votant','courriel','participant','date']];
+    state.votes.forEach(v=>rows.push([v.voteId,v.voterName,v.email,v.participantName,v.date]));
+    const csv=rows.map(r=>r.map(x=>`"${String(x).replaceAll('"','""')}"`).join(',')).join('\n');
+    const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}),u=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=u;a.download='rap-jungle-votes.csv';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)
+  });
+
+  // SETTINGS
+  const SQL = `create extension if not exists pgcrypto;
+
+create table if not exists rj_challenges (
+  id text primary key,
+  name text not null,
+  theme text,
+  deadline date,
+  voting_open boolean not null default true,
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists rj_submissions (
+  id text primary key,
+  challenge_id text not null,
+  name text not null,
+  email text not null,
+  city text,
+  social text,
+  bio text,
+  video_url text,
+  status text not null default 'pending',
+  created_at timestamptz not null default now()
+);
+
+create table if not exists rj_participants (
+  id text primary key,
+  challenge_id text not null,
+  name text not null,
+  code text not null unique,
+  video_url text,
+  social text,
+  city text,
+  status text not null default 'approved',
+  created_at timestamptz not null default now()
+);
+
+create table if not exists rj_votes (
+  id uuid primary key default gen_random_uuid(),
+  vote_id text not null unique,
+  challenge_id text not null,
+  voter_name text not null,
+  voter_email text not null,
+  participant_id text not null,
+  participant_name text not null,
+  created_at timestamptz not null default now(),
+  unique(challenge_id,voter_email)
+);
+
+alter table rj_challenges enable row level security;
+alter table rj_submissions enable row level security;
+alter table rj_participants enable row level security;
+alter table rj_votes enable row level security;
+
+create policy "public read active challenges" on rj_challenges for select using (true);
+create policy "public read participants" on rj_participants for select using (true);
+create policy "public submit" on rj_submissions for insert with check (true);
+create policy "public vote" on rj_votes for insert with check (true);
+create policy "public vote duplicate check" on rj_votes for select using (true);
+
+/* Prototype admin policies.
+   Pour production, remplacer par Supabase Auth + rôles admin. */
+create policy "prototype challenge write" on rj_challenges for all using (true) with check (true);
+create policy "prototype submissions admin" on rj_submissions for all using (true) with check (true);
+create policy "prototype participants admin" on rj_participants for all using (true) with check (true);
+create policy "prototype votes admin" on rj_votes for select using (true);
+
+insert into storage.buckets (id,name,public)
+values ('rap-jungle-videos','rap-jungle-videos',true)
+on conflict (id) do update set public=true;
+
+create policy "public upload rap jungle videos"
+on storage.objects for insert
+with check (bucket_id='rap-jungle-videos');
+
+create policy "public read rap jungle videos"
+on storage.objects for select
+using (bucket_id='rap-jungle-videos');`;
+
+  function renderSettings(){
+    $('supabaseUrl').value=settings.url||'';$('supabaseAnon').value=settings.anon||'';$('supabaseBucket').value=settings.bucket||'rap-jungle-videos';$('facebookWebhook').value=settings.facebookWebhook||'';
+    $('supabaseSql').value=SQL
+  }
+  $('saveSettings').addEventListener('click',()=>{
+    settings={url:$('supabaseUrl').value.trim(),anon:$('supabaseAnon').value.trim(),bucket:$('supabaseBucket').value.trim()||'rap-jungle-videos',facebookWebhook:$('facebookWebhook').value.trim()};
+    saveSettingsLocal();initSupabase();msg('settingsMsg','Réglages enregistrés.','good')
+  });
+  $('testSupabase').addEventListener('click',async()=>{
+    settings={url:$('supabaseUrl').value.trim(),anon:$('supabaseAnon').value.trim(),bucket:$('supabaseBucket').value.trim()||'rap-jungle-videos',facebookWebhook:$('facebookWebhook').value.trim()};
+    saveSettingsLocal();initSupabase();
+    if(!supabaseClient)return msg('settingsMsg','URL ou clé Supabase manquante.','bad');
+    try{
+      const {error}=await supabaseClient.from('rj_challenges').select('id').limit(1);
+      if(error)throw error;
+      await syncFromSupabase();renderAllAdmin();renderHome();msg('settingsMsg','Connexion Supabase réussie. Mode partagé activé.','good')
+    }catch(e){msg('settingsMsg','Connexion impossible : '+e.message,'bad')}
+  });
+  $('copySql').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(SQL);alert('SQL copié')}catch{prompt('Copie le SQL :',SQL)}});
+
+  // START
+  initSupabase();
+  if(supabaseClient)syncFromSupabase().then(()=>{renderHome();renderVote()});
+  renderHome();
+  if(selectedVoteCode){show('voteView');renderVote()}
+  else show('publicHome');
 })();
 </script>
 </body>
