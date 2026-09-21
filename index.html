@@ -480,12 +480,34 @@ input:focus,select:focus,textarea:focus{
     <div style="margin-top:12px"><label>Vidéo 16 Bar</label><input id="subVideo" type="file" accept="video/mp4,video/webm,video/quicktime,video/*">
       <div class="small" style="margin-top:6px">
         Les 16 Bars peuvent durer 1, 2, 3 ou 4 minutes : il n’y a aucune limite de durée.
-        Si la vidéo est trop lourde ou incompatible, l’application tente maintenant de la convertir automatiquement en MP4 H.264/AAC 720p avant l’envoi.
-        Ensuite, l’envoi se fait en morceaux avec reprise automatique. La vidéo finale doit rester sous 50 Mo.
+        Si la vidéo est trop lourde ou incompatible, utilise le Convertisseur 45 Mo Rap Jungle intégré ci-dessous.
+        Ensuite, sélectionne le fichier converti et l’application l’enverra en morceaux avec reprise automatique.
       </div>
       <div id="subFileInfo" class="file-check small hidden"></div>
+      <div id="externalConverterPanel" class="panel hidden" style="margin-top:14px;padding:12px">
+        <div class="row" style="justify-content:space-between;align-items:center">
+          <div>
+            <strong>CONVERTISSEUR 45 MO</strong>
+            <div class="small">Utilise ton convertisseur Rap Jungle pour ramener la vidéo sous 45 Mo, puis sélectionne le fichier converti ici.</div>
+          </div>
+          <button id="closeExternalConverter" type="button" class="secondary">FERMER</button>
+        </div>
+        <div style="margin-top:10px;border:1px solid #34523c;border-radius:14px;overflow:hidden;background:#000">
+          <iframe
+            id="converterFrame"
+            src="https://convertir45.vercel.app/"
+            title="Convertisseur vidéo 45 Mo"
+            style="width:100%;height:720px;border:0;background:#000"
+            allow="clipboard-read; clipboard-write"
+          ></iframe>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <a href="https://convertir45.vercel.app/" target="_blank" rel="noopener" class="btn goodbtn" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">OUVRIR LE CONVERTISSEUR DANS UN NOUVEL ONGLET</a>
+        </div>
+        <div class="small" style="margin-top:8px">Après conversion, reviens ici et sélectionne la nouvelle vidéo convertie avec le bouton de fichier.</div>
+      </div>
       <div id="subConvertStatus" class="small" style="margin-top:8px"></div>
-      <div id="subConvertMeter" class="upload-meter hidden"><div id="subConvertMeterBar"></div></div>
+      <button id="openExternalConverter" type="button" class="secondary hidden" style="width:100%;margin-top:8px">CONVERTIR LA VIDÉO À 45 MO</button>
       <div id="subUploadProgress" class="small" style="margin-top:8px"></div>
       <div id="subUploadMeter" class="upload-meter hidden"><div id="subUploadMeterBar"></div></div></div>
     <div id="subPreviewFrame" class="hidden" style="margin-top:12px">
@@ -904,6 +926,9 @@ async function tryPlayParticipantPreview(){
 }
 
 $("subPreviewPlay").onclick=tryPlayParticipantPreview;
+$("openExternalConverter").onclick=openExternalConverter;
+$("closeExternalConverter").onclick=closeExternalConverter;
+
 
 $("subVideo").onchange=()=>{
   const f=$("subVideo").files?.[0];
@@ -920,6 +945,8 @@ $("subVideo").onchange=()=>{
     frame.classList.add("hidden");
     info.classList.add("hidden");
     compat.textContent="";
+    $("openExternalConverter").classList.add("hidden");
+    $("subConvertStatus").textContent="";
     return;
   }
 
@@ -957,7 +984,15 @@ $("subVideo").onchange=()=>{
       participantVideoPlayable=false;
       compat.textContent="Le fichier contient de l’audio, mais aucune image vidéo décodable par ce navigateur.";
       compat.style.color="#ffb13b";
-      note("subMsg","Cette vidéo donnerait seulement du son. Utilise idéalement un MP4 H.264/AAC.","warn");
+    }
+
+    const needConvert=needsExternalConverter(f);
+    $("openExternalConverter").classList.toggle("hidden",!needConvert);
+    if(needConvert){
+      $("subConvertStatus").textContent="Cette vidéo doit passer par le Convertisseur 45 Mo avant l’envoi.";
+      note("subMsg","Convertis cette vidéo avec le Convertisseur 45 Mo intégré, puis sélectionne le fichier converti.","warn");
+    }else{
+      $("subConvertStatus").textContent="Vidéo compatible et sous 45 Mo : prête pour l’envoi.";
     }
   };
 
@@ -978,8 +1013,26 @@ $("subVideo").onchange=()=>{
 };
 
 
-let ffmpegInstance=null;
-let ffmpegLoading=null;
+
+const EXTERNAL_CONVERTER_URL="https://convertir45.vercel.app/";
+
+function needsExternalConverter(file){
+  const ext=(file.name.split(".").pop()||"").toLowerCase();
+  const knownRisk=["mov","m4v","hevc","mkv","avi"].includes(ext);
+  const tooLarge=file.size>45*1024*1024;
+  const browserCannotDecode=!participantVideoPlayable;
+  return knownRisk || tooLarge || browserCannotDecode;
+}
+
+function openExternalConverter(){
+  const panel=$("externalConverterPanel");
+  panel.classList.remove("hidden");
+  panel.scrollIntoView({behavior:"smooth",block:"start"});
+}
+
+function closeExternalConverter(){
+  $("externalConverterPanel").classList.add("hidden");
+}
 
 async function createSubmissionUpload(file){
   const r=await fetch(UPLOAD_ENDPOINT,{
@@ -1216,32 +1269,31 @@ $("sendSubmission").onclick=async()=>{
 
   const name=$("subName").value.trim();
   const email=emailNorm($("subEmail").value);
-  const sourceFile=$("subVideo").files?.[0];
+  const file=$("subVideo").files?.[0];
 
   if(!name)return note("subMsg","Entre ton nom ou nom de scène.","bad");
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return note("subMsg","Entre un courriel valide.","bad");
-  if(!sourceFile)return note("subMsg","Ajoute ta vidéo.","bad");
+  if(!file)return note("subMsg","Ajoute ta vidéo.","bad");
+
+  if(needsExternalConverter(file)){
+    $("openExternalConverter").classList.remove("hidden");
+    openExternalConverter();
+    return note("subMsg","Cette vidéo doit d’abord être convertie avec le Convertisseur 45 Mo. Après conversion, sélectionne le nouveau fichier ici puis renvoie ta participation.","warn");
+  }
+
+  if(file.size>MAX_VIDEO_BYTES){
+    return note("subMsg","Le fichier dépasse la limite du stockage. Passe-le dans le Convertisseur 45 Mo.","bad");
+  }
 
   $("sendSubmission").disabled=true;
-  $("sendSubmission").textContent="ANALYSE...";
-  $("subUploadProgress").textContent="";
-  $("subUploadMeter").classList.add("hidden");
-  $("subConvertStatus").textContent="Analyse automatique de la vidéo…";
+  $("sendSubmission").textContent="PRÉPARATION...";
+  $("subUploadProgress").textContent="Préparation du téléversement…";
+  $("subUploadMeter").classList.remove("hidden");
+  $("subUploadMeterBar").style.width="0%";
 
   try{
-    const preparedFile=await autoConvertParticipantVideo(sourceFile);
-
-    if(preparedFile.size>MAX_VIDEO_BYTES){
-      throw new Error(`Le fichier final fait ${humanMB(preparedFile.size)} et dépasse 50 Mo.`);
-    }
-
-    $("sendSubmission").textContent="PRÉPARATION ENVOI...";
-    $("subUploadProgress").textContent="Préparation du téléversement…";
-    $("subUploadMeter").classList.remove("hidden");
-    $("subUploadMeterBar").style.width="0%";
-
-    const prep=await createSubmissionUpload(preparedFile);
-    await uploadParticipantVideoTus(preparedFile,prep);
+    const prep=await createSubmissionUpload(file);
+    await uploadParticipantVideoTus(file,prep);
 
     const ins=await sb.from("rj_submissions").insert({
       id:prep.id,
@@ -1254,10 +1306,9 @@ $("sendSubmission").onclick=async()=>{
       video_path:prep.path,
       status:"pending"
     });
-
     if(ins.error)throw ins.error;
 
-    note("subMsg","Participation envoyée au complet. La vidéo a été préparée pour la plateforme et attend maintenant l’approbation admin.","good");
+    note("subMsg","Participation envoyée au complet. Un admin doit maintenant l’approuver.","good");
     $("subUploadProgress").textContent="Vidéo reçue à 100%.";
     $("subUploadMeterBar").style.width="100%";
 
@@ -1265,12 +1316,14 @@ $("sendSubmission").onclick=async()=>{
     $("subVideo").value="";
     $("subPreviewFrame").classList.add("hidden");
     $("subFileInfo").classList.add("hidden");
+    $("openExternalConverter").classList.add("hidden");
+    $("subConvertStatus").textContent="";
     participantVideoPlayable=false;
     participantVideoDuration=0;
   }catch(e){
     const raw=String(e?.message||e||"Erreur inconnue");
     const friendly=/ProgressEvent|response code: n\/a|Failed to fetch|NetworkError|create upload/i.test(raw)
-      ?"Le navigateur n’a pas réussi à ouvrir la connexion d’envoi vidéo. Recharge la page et réessaie; l’application tente maintenant deux chemins d’envoi Supabase automatiquement."
+      ?"Le navigateur n’a pas réussi à ouvrir la connexion d’envoi vidéo. Recharge la page puis réessaie."
       :raw;
     note("subMsg","Erreur : "+friendly,"bad");
   }finally{
