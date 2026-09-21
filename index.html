@@ -599,7 +599,8 @@ const SUPABASE_URL='https://hixkezzjgxfzmymkfyko.supabase.co';
 const SUPABASE_KEY='sb_publishable_5yp_LpH40HLd5C4btrltyw_r7wUrSFS';
 const ADMIN_ENDPOINT=SUPABASE_URL+"/functions/v1/rj-admin";
 const UPLOAD_ENDPOINT=SUPABASE_URL+"/functions/v1/rj-upload-url";
-const STORAGE_TUS_ENDPOINT="https://hixkezzjgxfzmymkfyko.storage.supabase.co/storage/v1/upload/resumable";
+const STORAGE_TUS_ENDPOINT=SUPABASE_URL+"/storage/v1/upload/resumable";
+const STORAGE_TUS_DIRECT_ENDPOINT="https://hixkezzjgxfzmymkfyko.storage.supabase.co/storage/v1/upload/resumable";
 const MAX_VIDEO_BYTES=50*1024*1024;
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
@@ -996,18 +997,17 @@ async function createSubmissionUpload(file){
 }
 
 function uploadParticipantVideoTus(file,prep){
-  return new Promise(async(resolve,reject)=>{
+  const runUpload=(endpoint)=>new Promise(async(resolve,reject)=>{
     if(!window.tus || !window.tus.Upload){
       reject(new Error("Le module de téléversement vidéo n’a pas chargé. Recharge la page."));
       return;
     }
 
     const upload=new tus.Upload(file,{
-      endpoint:STORAGE_TUS_ENDPOINT,
-      retryDelays:[0,3000,5000,10000,20000],
+      endpoint,
+      retryDelays:[0,2000,4000,8000,12000],
       headers:{
-        "x-signature":prep.token,
-        "apikey":SUPABASE_KEY
+        "x-signature":prep.token
       },
       uploadDataDuringCreation:true,
       removeFingerprintOnSuccess:true,
@@ -1048,6 +1048,21 @@ function uploadParticipantVideoTus(file,prep){
       reject(e);
     }
   });
+
+  return (async()=>{
+    try{
+      // The normal project endpoint is more broadly compatible with mobile browsers/Vercel.
+      return await runUpload(STORAGE_TUS_ENDPOINT);
+    }catch(firstError){
+      const msg=String(firstError?.message||firstError||"");
+      // Network/CORS style failures often surface as ProgressEvent / response n/a.
+      if(/ProgressEvent|response code: n\/a|Failed to fetch|NetworkError|create upload/i.test(msg)){
+        $("subUploadProgress").textContent="Premier chemin bloqué par le navigateur. Nouvelle tentative automatique…";
+        return await runUpload(STORAGE_TUS_DIRECT_ENDPOINT);
+      }
+      throw firstError;
+    }
+  })();
 }
 
 async function ensureVideoConverter(){
@@ -1253,7 +1268,11 @@ $("sendSubmission").onclick=async()=>{
     participantVideoPlayable=false;
     participantVideoDuration=0;
   }catch(e){
-    note("subMsg","Erreur : "+(e?.message||String(e)),"bad");
+    const raw=String(e?.message||e||"Erreur inconnue");
+    const friendly=/ProgressEvent|response code: n\/a|Failed to fetch|NetworkError|create upload/i.test(raw)
+      ?"Le navigateur n’a pas réussi à ouvrir la connexion d’envoi vidéo. Recharge la page et réessaie; l’application tente maintenant deux chemins d’envoi Supabase automatiquement."
+      :raw;
+    note("subMsg","Erreur : "+friendly,"bad");
   }finally{
     $("sendSubmission").disabled=false;
     $("sendSubmission").textContent="ENVOYER MA PARTICIPATION";
