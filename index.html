@@ -557,7 +557,11 @@ input:focus,select:focus,textarea:focus{
   <section class="panel"><div class="row" style="justify-content:space-between"><div><h2 class="jungle-title" style="margin:0">Administration Rap Jungle</h2><div class="small">Connexion sécurisée par Supabase Edge Function.</div></div><button id="backPublic" class="secondary">RETOUR PUBLIC</button></div></section>
 
   <section id="adminLogin" class="panel">
-    <div class="grid"><div><label>Courriel admin</label><input id="adminEmail" type="email"></div><div><label>Code</label><input id="adminCode" type="password" inputmode="numeric"></div></div>
+    <div class="grid">
+      <div><label>Courriel admin</label><input id="adminEmail" type="email" autocomplete="email"></div>
+      <div><label>Code admin ou mot de passe Supabase</label><input id="adminCode" type="password" autocomplete="current-password"></div>
+    </div>
+    <div class="small" style="margin-top:8px">Les administrateurs historiques continuent d’utiliser leur code. Un compte Supabase portant le rôle admin peut utiliser son mot de passe.</div>
     <button id="adminLoginBtn" style="width:100%;margin-top:12px">OUVRIR L'ADMIN</button><div id="adminLoginMsg" class="notice hidden"></div>
   </section>
 
@@ -568,6 +572,7 @@ input:focus,select:focus,textarea:focus{
       <button class="tab" data-tab="aSubmissions">PARTICIPATIONS</button>
       <button class="tab" data-tab="aParticipants">PARTICIPANTS</button>
       <button class="tab" data-tab="aMedia">MONITEUR</button>
+      <button class="tab" data-tab="aArtists">ARTISTES</button>
       <button class="tab" data-tab="aFacebook">FACEBOOK</button>
       <button class="tab" data-tab="aResults">RÉSULTATS</button>
     </div>
@@ -624,8 +629,32 @@ input:focus,select:focus,textarea:focus{
             <h2 class="jungle-title" style="margin:0 0 5px">Bibliothèque vidéo</h2>
             <div class="small">La vidéo marquée EN ONDES est celle affichée au public.</div>
           </div>
+          <button id="clearMediaLibrary" class="danger" type="button">VIDER LA BIBLIOTHÈQUE</button>
         </div>
+        <div class="notice warn">VIDER LA BIBLIOTHÈQUE supprime définitivement les fichiers vidéo du moniteur et leurs entrées Supabase. Une confirmation est demandée avant l’action.</div>
         <div id="mediaLibrary"></div>
+      </div>
+    </section>
+
+    <section id="aArtists" class="adminTab hidden">
+      <div class="panel">
+        <div class="row" style="justify-content:space-between;align-items:center">
+          <div>
+            <h2 class="jungle-title" style="margin:0 0 5px">Fiches artistes</h2>
+            <div class="small">Approuve, refuse, remet en attente ou supprime une fiche. Seules les fiches APPROUVÉES sont visibles publiquement.</div>
+          </div>
+          <div style="min-width:220px">
+            <label>Afficher</label>
+            <select id="artistStatusFilter">
+              <option value="all">Toutes les fiches</option>
+              <option value="pending">En attente</option>
+              <option value="approved">Approuvées</option>
+              <option value="rejected">Refusées</option>
+            </select>
+          </div>
+        </div>
+        <div id="artistAdminSummary" class="notice" style="margin-top:12px"></div>
+        <div id="artistProfileList"></div>
       </div>
     </section>
 
@@ -658,7 +687,7 @@ function note(id,text,type="good"){const e=$(id);e.textContent=text;e.className=
 let challenge=null,participants=[],selectedCode=new URLSearchParams(location.search).get("vote")||null;
 let convertedUploadRef=null;
 let currentMedia=null;
-let adminData={submissions:[],participants:[],votes:[],media:[],active:null};
+let adminData={submissions:[],participants:[],votes:[],media:[],artists:[],active:null};
 let adminCred=null;
 
 async function loadPublic(){
@@ -1549,23 +1578,103 @@ $("confirmVote").onclick=async()=>{
 
 async function adminCall(action,payload={}){
   if(!adminCred)throw new Error("Session admin absente");
-  const r=await fetch(ADMIN_ENDPOINT,{method:"POST",headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY},body:JSON.stringify({action,adminEmail:adminCred.email,adminCode:adminCred.code,...payload})});
-  const j=await r.json();if(!r.ok||j.error)throw new Error(j.error||"Erreur admin");return j;
+
+  const headers={"Content-Type":"application/json","apikey":SUPABASE_KEY};
+  const body={action,...payload};
+
+  if(adminCred.mode==="supabase"){
+    const {data:{session},error}=await sb.auth.getSession();
+    if(error || !session?.access_token)throw new Error("Session Supabase expirée. Reconnecte-toi à l’admin.");
+    headers.Authorization="Bearer "+session.access_token;
+    body.adminEmail=adminCred.email;
+  }else{
+    body.adminEmail=adminCred.email;
+    body.adminCode=adminCred.code;
+  }
+
+  const r=await fetch(ADMIN_ENDPOINT,{
+    method:"POST",
+    headers,
+    body:JSON.stringify(body)
+  });
+  const j=await r.json();
+  if(!r.ok||j.error)throw new Error(j.error||"Erreur admin");
+  return j;
 }
+
 function renderAdminAuth(){
   adminCred=JSON.parse(sessionStorage.getItem("rj_admin")||"null");
-  $("adminLogin").classList.toggle("hidden",!!adminCred);$("adminApp").classList.toggle("hidden",!adminCred);
-  if(adminCred){$("adminWho").textContent="Connecté : "+adminCred.email;refreshAdmin()}
+  $("adminLogin").classList.toggle("hidden",!!adminCred);
+  $("adminApp").classList.toggle("hidden",!adminCred);
+  if(adminCred){
+    $("adminWho").textContent="Connecté : "+adminCred.email+(adminCred.mode==="supabase"?" — ADMIN SUPABASE":" — ADMIN CODE");
+    refreshAdmin();
+  }
 }
+
 $("adminLoginBtn").onclick=async()=>{
-  const cred={email:emailNorm($("adminEmail").value),code:$("adminCode").value.trim()};
+  const email=emailNorm($("adminEmail").value);
+  const secret=$("adminCode").value.trim();
+  if(!email || !secret)return note("adminLoginMsg","Entre ton courriel et ton code ou mot de passe.","bad");
+
+  $("adminLoginBtn").disabled=true;
+  $("adminLoginBtn").textContent="CONNEXION...";
+
   try{
-    const r=await fetch(ADMIN_ENDPOINT,{method:"POST",headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY},body:JSON.stringify({action:"login",adminEmail:cred.email,adminCode:cred.code})});
-    const j=await r.json();if(!r.ok||j.error)throw new Error(j.error||"Connexion refusée");
-    adminCred=cred;sessionStorage.setItem("rj_admin",JSON.stringify(cred));$("adminWho").textContent="Connecté : "+j.admin.name+" — "+cred.email;$("adminLogin").classList.add("hidden");$("adminApp").classList.remove("hidden");await refreshAdmin();
-  }catch(e){note("adminLoginMsg",e.message,"bad")}
+    // 1. Conserver les deux administrateurs historiques par courriel + code.
+    const legacy=await fetch(ADMIN_ENDPOINT,{
+      method:"POST",
+      headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY},
+      body:JSON.stringify({action:"login",adminEmail:email,adminCode:secret})
+    });
+    const legacyJson=await legacy.json();
+
+    if(legacy.ok && !legacyJson.error){
+      adminCred={email,code:secret,mode:"legacy"};
+      sessionStorage.setItem("rj_admin",JSON.stringify(adminCred));
+      $("adminWho").textContent="Connecté : "+legacyJson.admin.name+" — "+email;
+      $("adminLogin").classList.add("hidden");
+      $("adminApp").classList.remove("hidden");
+      await refreshAdmin();
+      return;
+    }
+
+    // 2. Nouveau mode : compte Supabase avec app_metadata.role = admin.
+    const {data,error}=await sb.auth.signInWithPassword({email,password:secret});
+    if(error)throw new Error("Connexion refusée.");
+    const user=data?.user;
+    if(!user || user.app_metadata?.role!=="admin"){
+      await sb.auth.signOut();
+      throw new Error("Ce compte Supabase n’a pas le rôle admin.");
+    }
+
+    adminCred={email:user.email||email,mode:"supabase"};
+    sessionStorage.setItem("rj_admin",JSON.stringify(adminCred));
+
+    // Vérification réelle auprès de la fonction admin.
+    const check=await adminCall("login");
+    $("adminWho").textContent="Connecté : "+(check.admin?.name||adminCred.email)+" — ADMIN SUPABASE";
+    $("adminLogin").classList.add("hidden");
+    $("adminApp").classList.remove("hidden");
+    await refreshAdmin();
+
+  }catch(e){
+    note("adminLoginMsg",e.message||"Connexion refusée","bad");
+  }finally{
+    $("adminLoginBtn").disabled=false;
+    $("adminLoginBtn").textContent="OUVRIR L'ADMIN";
+  }
 };
-$("logoutBtn").onclick=()=>{sessionStorage.removeItem("rj_admin");adminCred=null;renderAdminAuth()};
+
+$("logoutBtn").onclick=async()=>{
+  const mode=adminCred?.mode;
+  sessionStorage.removeItem("rj_admin");
+  adminCred=null;
+  if(mode==="supabase"){
+    try{await sb.auth.signOut()}catch{}
+  }
+  renderAdminAuth();
+};
 
 document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));t.classList.add("active");document.querySelectorAll(".adminTab").forEach(x=>x.classList.add("hidden"));$(t.dataset.tab).classList.remove("hidden")});
 
@@ -1573,7 +1682,7 @@ async function refreshAdmin(){
   try{
     const d=await adminCall("dashboard");adminData=d;challenge=d.active||challenge;participants=d.participants||participants;
     $("chName").value=challenge?.name||"";$("chTheme").value=challenge?.theme||"";$("chDeadline").value=challenge?.deadline||"";$("toggleVoting").textContent=challenge?.voting_open?"FERMER LES VOTES":"ROUVRIR LES VOTES";
-    renderSubmissions();renderParticipantsAdmin();renderMediaAdmin();renderResults();renderFacebook();renderPublic();renderPublicMedia();
+    renderSubmissions();renderParticipantsAdmin();renderMediaAdmin();renderArtistsAdmin();renderResults();renderFacebook();renderPublic();renderPublicMedia();
   }catch(e){alert(e.message)}
 }
 $("saveChallenge").onclick=async()=>{
@@ -1583,30 +1692,144 @@ $("toggleVoting").onclick=async()=>{try{await adminCall("toggle_voting",{challen
 
 function renderSubmissions(){
   const list=adminData.submissions||[];
-  $("submissionList").innerHTML=list.map(s=>`<article class="item"><div class="row" style="justify-content:space-between"><div><strong>${esc(s.name)}</strong><div class="small">${esc(s.email)}${s.city?" — "+esc(s.city):""}</div></div><span class="status">${esc(s.status)}</span></div>${s.social?`<div class="small">Réseaux : ${esc(s.social)}</div>`:""}${s.bio?`<p>${esc(s.bio)}</p>`:""}${s.video_signed_url?`<video class="media" src="${esc(s.video_signed_url)}" controls preload="auto" playsinline webkit-playsinline></video>`:""}<div class="row" style="margin-top:10px">${s.status==="pending"?`<button class="approve goodbtn" data-id="${esc(s.id)}">APPROUVER + CRÉER PARTICIPANT</button><button class="reject danger" data-id="${esc(s.id)}">REFUSER</button>`:s.status==="approved"?`<button class="revoke danger" data-id="${esc(s.id)}">RETIRER DU PUBLIC</button>`:`<button class="reapprove goodbtn" data-id="${esc(s.id)}">RÉAPPROUVER</button>`}</div></article>`).join("")||'<div class="small">Aucune participation.</div>';
-  document.querySelectorAll(".approve").forEach(b=>b.onclick=async()=>{try{await adminCall("approve_submission",{submissionId:b.dataset.id});await refreshAdmin();await loadPublic()}catch(e){alert(e.message)}});
-  document.querySelectorAll(".reject").forEach(b=>b.onclick=async()=>{if(!confirm("Refuser cette participation?"))return;try{await adminCall("reject_submission",{submissionId:b.dataset.id});await refreshAdmin();await loadPublic()}catch(e){alert(e.message)}});
+  $("submissionList").innerHTML=list.map(s=>`
+    <article class="item">
+      <div class="row" style="justify-content:space-between">
+        <div>
+          <strong>${esc(s.name)}</strong>
+          <div class="small">${esc(s.email)}${s.city?" — "+esc(s.city):""}</div>
+        </div>
+        <span class="status">${esc(s.status)}</span>
+      </div>
+      ${s.social?`<div class="small">Réseaux : ${esc(s.social)}</div>`:""}
+      ${s.bio?`<p>${esc(s.bio)}</p>`:""}
+      ${s.video_signed_url?`<video class="media" src="${esc(s.video_signed_url)}" controls preload="auto" playsinline webkit-playsinline></video>`:""}
+      <div class="row" style="margin-top:10px">
+        ${
+          s.status==="pending"
+          ? `<button class="approve goodbtn" data-id="${esc(s.id)}">APPROUVER + CRÉER PARTICIPANT</button>
+             <button class="reject danger" data-id="${esc(s.id)}">REFUSER</button>`
+          : s.status==="approved"
+          ? `<button class="revoke danger" data-id="${esc(s.id)}">RETIRER DU PUBLIC</button>`
+          : `<button class="reapprove goodbtn" data-id="${esc(s.id)}">RÉAPPROUVER</button>`
+        }
+        <button class="submissionDeletePermanent danger" data-id="${esc(s.id)}">SUPPRIMER DÉFINITIVEMENT</button>
+      </div>
+    </article>
+  `).join("")||'<div class="small">Aucune participation.</div>';
+
+  document.querySelectorAll(".approve").forEach(b=>b.onclick=async()=>{
+    try{await adminCall("approve_submission",{submissionId:b.dataset.id});await refreshAdmin();await loadPublic()}
+    catch(e){alert(e.message)}
+  });
+
+  document.querySelectorAll(".reject").forEach(b=>b.onclick=async()=>{
+    if(!confirm("Refuser cette participation?"))return;
+    try{await adminCall("reject_submission",{submissionId:b.dataset.id});await refreshAdmin();await loadPublic()}
+    catch(e){alert(e.message)}
+  });
+
   document.querySelectorAll(".revoke").forEach(b=>b.onclick=async()=>{
     if(!confirm("Retirer cette vidéo du public? La copie publique sera supprimée, le participant sera masqué et les votes existants seront conservés."))return;
-    try{await adminCall("revoke_submission",{submissionId:b.dataset.id});await refreshAdmin();await loadPublic()}catch(e){alert(e.message)}
+    try{await adminCall("revoke_submission",{submissionId:b.dataset.id});await refreshAdmin();await loadPublic()}
+    catch(e){alert(e.message)}
   });
+
   document.querySelectorAll(".reapprove").forEach(b=>b.onclick=async()=>{
     if(!confirm("Réapprouver cette participation et republier sa vidéo?"))return;
-    try{await adminCall("approve_submission",{submissionId:b.dataset.id});await refreshAdmin();await loadPublic()}catch(e){alert(e.message)}
+    try{await adminCall("approve_submission",{submissionId:b.dataset.id});await refreshAdmin();await loadPublic()}
+    catch(e){alert(e.message)}
+  });
+
+  document.querySelectorAll(".submissionDeletePermanent").forEach(b=>b.onclick=async()=>{
+    const ok=confirm("SUPPRESSION DÉFINITIVE : supprimer cette participation et son fichier vidéo privé/public? Si un participant y est lié, il sera conservé mais masqué. Ses votes seront conservés. Cette action est irréversible.");
+    if(!ok)return;
+    try{
+      await adminCall("delete_submission_permanent",{submissionId:b.dataset.id});
+      await refreshAdmin();
+      await loadPublic();
+    }catch(e){alert(e.message)}
   });
 }
 $("addManual").onclick=async()=>{const name=$("manualName").value.trim();if(!name)return;try{await adminCall("add_participant",{challengeId:challenge.id,name});$("manualName").value="";await refreshAdmin();await loadPublic()}catch(e){alert(e.message)}};
 function renderParticipantsAdmin(){
   const votes=adminData.votes||[];
-  $("adminParticipants").innerHTML=(adminData.participants||[]).map(p=>{const n=votes.filter(v=>v.participant_id===p.id).length;return `<article class="item"><div class="row" style="justify-content:space-between;align-items:center"><div><strong>${esc(p.name)}</strong><div class="small">Statut : ${esc(p.status||"approved")}</div></div><span class="status">${n} vote(s)</span></div><div class="row" style="margin-top:10px"><div class="grow"><label>Nom</label><input class="pname" data-id="${esc(p.id)}" value="${esc(p.name)}"></div></div><div class="qr" id="aqr-${esc(p.id)}"></div><div class="code">${esc(location.href.split("?")[0]+"?vote="+p.code)}</div><div class="row" style="margin-top:10px"><button class="psave secondary" data-id="${esc(p.id)}">SAUVER</button>${p.status==="approved"?`<button class="pdel danger" data-id="${esc(p.id)}">RETIRER DU PUBLIC</button>`:`<button class="prestore goodbtn" data-id="${esc(p.id)}">RESTAURER</button>`}</div></article>`}).join("");
-  (adminData.participants||[]).forEach(p=>{const el=$("aqr-"+p.id);if(el)new QRCode(el,{text:location.href.split("?")[0]+"?vote="+p.code,width:140,height:140})});
-  document.querySelectorAll(".psave").forEach(b=>b.onclick=async()=>{const inp=document.querySelector(`.pname[data-id="${CSS.escape(b.dataset.id)}"]`);try{await adminCall("update_participant",{participantId:b.dataset.id,name:inp.value.trim()});await refreshAdmin();await loadPublic()}catch(e){alert(e.message)}});
-  document.querySelectorAll(".pdel").forEach(b=>b.onclick=async()=>{
-    if(!confirm("Retirer ce participant du public? Sa vidéo publique sera retirée et les votes existants seront conservés."))return;
-    try{await adminCall("delete_participant",{participantId:b.dataset.id});await refreshAdmin();await loadPublic()}catch(e){alert(e.message)}
+
+  $("adminParticipants").innerHTML=(adminData.participants||[]).map(p=>{
+    const n=votes.filter(v=>v.participant_id===p.id).length;
+    return `
+      <article class="item">
+        <div class="row" style="justify-content:space-between;align-items:center">
+          <div>
+            <strong>${esc(p.name)}</strong>
+            <div class="small">Statut : ${esc(p.status||"approved")}</div>
+          </div>
+          <span class="status">${n} vote(s)</span>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <div class="grow">
+            <label>Nom</label>
+            <input class="pname" data-id="${esc(p.id)}" value="${esc(p.name)}">
+          </div>
+        </div>
+
+        <div class="qr" id="aqr-${esc(p.id)}"></div>
+        <div class="code">${esc(location.href.split("?")[0]+"?vote="+p.code)}</div>
+
+        <div class="row" style="margin-top:10px">
+          <button class="psave secondary" data-id="${esc(p.id)}">SAUVER</button>
+          ${
+            p.status==="approved"
+            ? `<button class="pHide danger" data-id="${esc(p.id)}">RETIRER DU PUBLIC</button>`
+            : `<button class="prestore goodbtn" data-id="${esc(p.id)}">RESTAURER</button>`
+          }
+          <button class="pDeletePermanent danger" data-id="${esc(p.id)}">SUPPRIMER PARTICIPANT</button>
+        </div>
+      </article>`;
+  }).join("")||'<div class="small">Aucun participant.</div>';
+
+  (adminData.participants||[]).forEach(p=>{
+    const el=$("aqr-"+p.id);
+    if(el)new QRCode(el,{text:location.href.split("?")[0]+"?vote="+p.code,width:140,height:140});
   });
+
+  document.querySelectorAll(".psave").forEach(b=>b.onclick=async()=>{
+    const inp=document.querySelector(`.pname[data-id="${CSS.escape(b.dataset.id)}"]`);
+    try{
+      await adminCall("update_participant",{participantId:b.dataset.id,name:inp.value.trim()});
+      await refreshAdmin();
+      await loadPublic();
+    }catch(e){alert(e.message)}
+  });
+
+  document.querySelectorAll(".pHide").forEach(b=>b.onclick=async()=>{
+    if(!confirm("Retirer ce participant du public? Sa vidéo publique sera retirée et les votes existants seront conservés."))return;
+    try{
+      await adminCall("delete_participant",{participantId:b.dataset.id});
+      await refreshAdmin();
+      await loadPublic();
+    }catch(e){alert(e.message)}
+  });
+
   document.querySelectorAll(".prestore").forEach(b=>b.onclick=async()=>{
-    try{await adminCall("restore_participant",{participantId:b.dataset.id});await refreshAdmin();await loadPublic()}catch(e){alert(e.message)}
+    try{
+      await adminCall("restore_participant",{participantId:b.dataset.id});
+      await refreshAdmin();
+      await loadPublic();
+    }catch(e){alert(e.message)}
+  });
+
+  document.querySelectorAll(".pDeletePermanent").forEach(b=>b.onclick=async()=>{
+    const p=(adminData.participants||[]).find(x=>x.id===b.dataset.id);
+    const voteCount=(adminData.votes||[]).filter(v=>v.participant_id===b.dataset.id).length;
+    const ok=confirm(`SUPPRESSION DÉFINITIVE : supprimer ${p?.name||"ce participant"}? ${voteCount} vote(s) lié(s) seront également supprimés. Cette action est irréversible.`);
+    if(!ok)return;
+    try{
+      await adminCall("delete_participant_permanent",{participantId:b.dataset.id});
+      await refreshAdmin();
+      await loadPublic();
+    }catch(e){alert(e.message)}
   });
 }
 
@@ -1701,6 +1924,24 @@ $("stopMedia").onclick=async()=>{
   }catch(e){note("mediaMsg","Erreur : "+e.message,"bad")}
 };
 
+$("clearMediaLibrary").onclick=async()=>{
+  const count=(adminData.media||[]).length;
+  if(!count)return note("mediaMsg","La bibliothèque est déjà vide.","warn");
+  const ok=confirm(`VIDER LA BIBLIOTHÈQUE : supprimer définitivement ${count} vidéo(s), y compris celle actuellement en ondes? Cette action est irréversible.`);
+  if(!ok)return;
+  const second=confirm("Dernière confirmation : tous les fichiers du MONITEUR seront supprimés de Supabase Storage. Continuer?");
+  if(!second)return;
+
+  try{
+    const r=await adminCall("clear_media_library");
+    note("mediaMsg",`${r.count||count} vidéo(s) supprimée(s). Bibliothèque vidée.`,"good");
+    await refreshAdmin();
+    await loadPublicMedia();
+  }catch(e){
+    note("mediaMsg","Erreur : "+e.message,"bad");
+  }
+};
+
 function renderMediaAdmin(){
   const list=adminData.media||[];
   $("mediaLibrary").innerHTML=list.map(m=>`
@@ -1765,6 +2006,103 @@ function renderMediaAdmin(){
     }catch(e){alert(e.message)}
   });
 }
+
+
+function renderArtistsAdmin(){
+  const all=adminData.artists||[];
+  const filter=$("artistStatusFilter")?.value||"all";
+  const list=filter==="all"?all:all.filter(a=>a.status===filter);
+
+  const pending=all.filter(a=>a.status==="pending").length;
+  const approved=all.filter(a=>a.status==="approved").length;
+  const rejected=all.filter(a=>a.status==="rejected").length;
+
+  if($("artistAdminSummary")){
+    $("artistAdminSummary").innerHTML=
+      `<strong>${all.length} fiche(s)</strong> — ${pending} en attente · ${approved} approuvée(s) · ${rejected} refusée(s)`;
+  }
+
+  $("artistProfileList").innerHTML=list.map(a=>`
+    <article class="item">
+      <div class="row" style="justify-content:space-between;align-items:flex-start">
+        <div class="row" style="align-items:center">
+          ${
+            a.photo_url
+            ? `<img src="${esc(a.photo_url)}" alt="" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid #34523c">`
+            : `<div class="avatar" style="width:72px;height:72px;margin:0;font-size:24px">${esc((a.stage_name||"?")[0].toUpperCase())}</div>`
+          }
+          <div>
+            <strong style="font-size:20px">${esc(a.stage_name)}</strong>
+            <div class="small">${esc(a.artist_type)} · ${esc(a.region)} · ${esc(a.genre)}</div>
+            <div class="small">Créée : ${a.created_at?new Date(a.created_at).toLocaleString("fr-CA"):"—"}</div>
+          </div>
+        </div>
+        <span class="status">${esc(String(a.status||"pending").toUpperCase())}</span>
+      </div>
+
+      ${a.presentation?`<p><strong>Présentation :</strong> ${esc(a.presentation)}</p>`:""}
+      ${a.bio?`<p class="small">${esc(a.bio)}</p>`:""}
+
+      <div class="grid">
+        ${a.booking_email?`<div><label>Courriel professionnel</label><div class="code">${esc(a.booking_email)}</div></div>`:""}
+        ${a.social_url?`<div><label>Réseau</label><a class="btn secondary" href="${esc(a.social_url)}" target="_blank" rel="noopener">OUVRIR</a></div>`:""}
+        ${a.website_url?`<div><label>Site</label><a class="btn secondary" href="${esc(a.website_url)}" target="_blank" rel="noopener">OUVRIR</a></div>`:""}
+        ${a.spotify_url?`<div><label>Musique</label><a class="btn secondary" href="${esc(a.spotify_url)}" target="_blank" rel="noopener">OUVRIR</a></div>`:""}
+      </div>
+
+      <div style="margin-top:12px">
+        <label>Note interne admin</label>
+        <textarea class="artistAdminNote" data-id="${esc(a.id)}" placeholder="Note interne facultative">${esc(a.admin_note||"")}</textarea>
+      </div>
+
+      <div class="row" style="margin-top:10px">
+        ${a.status!=="approved"?`<button class="artistApprove goodbtn" data-id="${esc(a.id)}">APPROUVER</button>`:""}
+        ${a.status!=="rejected"?`<button class="artistReject danger" data-id="${esc(a.id)}">REFUSER</button>`:""}
+        ${a.status!=="pending"?`<button class="artistPending secondary" data-id="${esc(a.id)}">REMETTRE EN ATTENTE</button>`:""}
+        <button class="artistDelete danger" data-id="${esc(a.id)}">SUPPRIMER LA FICHE</button>
+      </div>
+    </article>
+  `).join("")||'<div class="notice">Aucune fiche dans cette catégorie.</div>';
+
+  const noteFor=id=>document.querySelector(`.artistAdminNote[data-id="${CSS.escape(id)}"]`)?.value||"";
+
+  document.querySelectorAll(".artistApprove").forEach(b=>b.onclick=async()=>{
+    try{
+      await adminCall("set_artist_status",{artistId:b.dataset.id,status:"approved",adminNote:noteFor(b.dataset.id)});
+      await refreshAdmin();
+    }catch(e){alert(e.message)}
+  });
+
+  document.querySelectorAll(".artistReject").forEach(b=>b.onclick=async()=>{
+    if(!confirm("Refuser cette fiche artiste? Elle ne sera pas visible dans le répertoire public."))return;
+    try{
+      await adminCall("set_artist_status",{artistId:b.dataset.id,status:"rejected",adminNote:noteFor(b.dataset.id)});
+      await refreshAdmin();
+    }catch(e){alert(e.message)}
+  });
+
+  document.querySelectorAll(".artistPending").forEach(b=>b.onclick=async()=>{
+    try{
+      await adminCall("set_artist_status",{artistId:b.dataset.id,status:"pending",adminNote:noteFor(b.dataset.id)});
+      await refreshAdmin();
+    }catch(e){alert(e.message)}
+  });
+
+  document.querySelectorAll(".artistDelete").forEach(b=>b.onclick=async()=>{
+    const a=(adminData.artists||[]).find(x=>x.id===b.dataset.id);
+    const ok=confirm(`SUPPRESSION DÉFINITIVE : supprimer la fiche artiste « ${a?.stage_name||"Artiste"} » et sa photo de profil? Le compte de connexion Supabase de l’artiste sera conservé.`);
+    if(!ok)return;
+    try{
+      await adminCall("delete_artist_profile",{artistId:b.dataset.id});
+      await refreshAdmin();
+    }catch(e){alert(e.message)}
+  });
+}
+
+if($("artistStatusFilter")){
+  $("artistStatusFilter").onchange=renderArtistsAdmin;
+}
+
 
 function renderResults(){
   const votes=adminData.votes||[],ps=adminData.participants||[];$("resultSummary").textContent=votes.length+" vote(s) enregistré(s)";
