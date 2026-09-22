@@ -573,6 +573,8 @@ input:focus,select:focus,textarea:focus{
       <button class="tab" data-tab="aParticipants">PARTICIPANTS</button>
       <button class="tab" data-tab="aMedia">MONITEUR</button>
       <button class="tab" data-tab="aArtists">ARTISTES</button>
+      <button class="tab" data-tab="aVip">VIP</button>
+      <button class="tab" data-tab="aBoutique">BOUTIQUE</button>
       <button class="tab" data-tab="aFacebook">FACEBOOK</button>
       <button class="tab" data-tab="aResults">RÉSULTATS</button>
     </div>
@@ -655,6 +657,49 @@ input:focus,select:focus,textarea:focus{
         </div>
         <div id="artistAdminSummary" class="notice" style="margin-top:12px"></div>
         <div id="artistProfileList"></div>
+      </div>
+    </section>
+
+    <section id="aVip" class="adminTab hidden">
+      <div class="panel">
+        <h2 class="jungle-title">Demandes VIP — paiement manuel</h2>
+        <div class="notice">VIP : 5,99 $ CAD / mois. Processus obligatoire : facture → virement bancaire → preuve de paiement → validation → activation → reçu. Aucun débit automatique.</div>
+        <div id="vipRequestList" style="margin-top:12px"></div>
+      </div>
+    </section>
+
+    <section id="aBoutique" class="adminTab hidden">
+      <div class="panel">
+        <h2 class="jungle-title">Demandes de boutique</h2>
+        <div id="shopQuoteList"></div>
+      </div>
+      <div class="panel">
+        <h2 class="jungle-title">Demandes de commande</h2>
+        <div id="orderRequestList"></div>
+      </div>
+      <div class="panel">
+        <h2 class="jungle-title">Créer une vitrine</h2>
+        <div class="grid">
+          <div><label>Artiste / projet</label><input id="newShopArtist"></div>
+          <div><label>Slug</label><input id="newShopSlug" placeholder="nom-artiste"></div>
+          <div style="grid-column:1/-1"><label>Description</label><textarea id="newShopDescription"></textarea></div>
+        </div>
+        <button id="createShopBtn" class="secondary" style="margin-top:10px">CRÉER LA VITRINE</button>
+        <div id="shopAdminList" style="margin-top:14px"></div>
+      </div>
+      <div class="panel">
+        <h2 class="jungle-title">Ajouter un produit</h2>
+        <div class="grid">
+          <div><label>Boutique</label><select id="productShop"></select></div>
+          <div><label>Nom</label><input id="productName"></div>
+          <div><label>Catégorie</label><input id="productCategory"></div>
+          <div><label>Prix en $ CAD</label><input id="productPrice" type="number" min="0" step="0.01"></div>
+          <div style="grid-column:1/-1"><label>Description</label><textarea id="productDescription"></textarea></div>
+          <div><label>URL image</label><input id="productImage"></div>
+          <div><label>Lien d’achat externe (optionnel)</label><input id="productPurchase"></div>
+        </div>
+        <button id="saveProductBtn" class="secondary" style="margin-top:10px">AJOUTER LE PRODUIT</button>
+        <div id="productAdminList" style="margin-top:14px"></div>
       </div>
     </section>
 
@@ -1682,7 +1727,7 @@ async function refreshAdmin(){
   try{
     const d=await adminCall("dashboard");adminData=d;challenge=d.active||challenge;participants=d.participants||participants;
     $("chName").value=challenge?.name||"";$("chTheme").value=challenge?.theme||"";$("chDeadline").value=challenge?.deadline||"";$("toggleVoting").textContent=challenge?.voting_open?"FERMER LES VOTES":"ROUVRIR LES VOTES";
-    renderSubmissions();renderParticipantsAdmin();renderMediaAdmin();renderArtistsAdmin();renderResults();renderFacebook();renderPublic();renderPublicMedia();
+    renderSubmissions();renderParticipantsAdmin();renderMediaAdmin();renderArtistsAdmin();renderVipAdmin();renderBoutiqueAdmin();renderResults();renderFacebook();renderPublic();renderPublicMedia();
   }catch(e){alert(e.message)}
 }
 $("saveChallenge").onclick=async()=>{
@@ -2109,6 +2154,76 @@ function renderResults(){
   $("resultCards").innerHTML=ps.map(p=>{const n=votes.filter(v=>v.participant_id===p.id).length;return `<article class="card"><h3>${esc(p.name)}</h3><div class="kpi">${n}</div><div class="small">vote${n===1?"":"s"}</div></article>`}).join("")
 }
 $("exportCsv").onclick=()=>{const rows=[["vote_id","nom_votant","courriel","participant","date"]];(adminData.votes||[]).forEach(v=>rows.push([v.vote_id,v.voter_name,v.voter_email,v.participant_name,v.created_at]));const csv=rows.map(r=>r.map(x=>`"${String(x??"").replaceAll('"','""')}"`).join(",")).join("\n");const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8"}),u=URL.createObjectURL(blob),a=document.createElement("a");a.href=u;a.download="rap-jungle-votes.csv";a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)};
+
+
+function renderVipAdmin(){
+  const rows=adminData.vipRequests||[];
+  const box=$("vipRequestList");
+  if(!box)return;
+  box.innerHTML=rows.length?rows.map(r=>`
+    <div class="card" style="margin-bottom:10px">
+      <div class="row" style="justify-content:space-between"><strong>${esc(r.contact_name||r.email)}</strong><span class="status">${esc(String(r.status||"").replaceAll("_"," ").toUpperCase())}</span></div>
+      <div class="small">${esc(r.email||"")} · ${r.created_at?new Date(r.created_at).toLocaleString("fr-CA"):""}</div>
+      <div class="grid" style="margin-top:10px">
+        <div><label>Référence facture</label><input data-vip-invoice="${esc(r.id)}" value="${esc(r.invoice_ref||"")}"></div>
+        <div><label>Référence reçu</label><input data-vip-receipt="${esc(r.id)}" value="${esc(r.receipt_ref||"")}"></div>
+        <div style="grid-column:1/-1"><label>Note admin</label><input data-vip-note="${esc(r.id)}" value="${esc(r.admin_note||"")}"></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="secondary vipStatusBtn" data-id="${esc(r.id)}" data-status="invoice_sent">FACTURE ENVOYÉE</button>
+        <button class="secondary vipStatusBtn" data-id="${esc(r.id)}" data-status="payment_review">PREUVE REÇUE</button>
+        <button class="goodbtn vipActivateBtn" data-id="${esc(r.id)}">ACTIVER VIP + REÇU</button>
+        <button class="danger vipStatusBtn" data-id="${esc(r.id)}" data-status="rejected">REFUSER</button>
+      </div>
+    </div>`).join(""):'<div class="notice">Aucune demande VIP.</div>';
+
+  box.querySelectorAll(".vipStatusBtn").forEach(b=>b.onclick=async()=>{
+    const id=b.dataset.id;
+    const invoice=document.querySelector('[data-vip-invoice="'+id+'"]')?.value||"";
+    const receipt=document.querySelector('[data-vip-receipt="'+id+'"]')?.value||"";
+    const note=document.querySelector('[data-vip-note="'+id+'"]')?.value||"";
+    try{await adminCall("set_vip_request_status",{requestId:id,status:b.dataset.status,invoiceRef:invoice,receiptRef:receipt,adminNote:note});await refreshAdmin()}catch(e){alert(e.message)}
+  });
+  box.querySelectorAll(".vipActivateBtn").forEach(b=>b.onclick=async()=>{
+    const id=b.dataset.id;
+    const invoice=document.querySelector('[data-vip-invoice="'+id+'"]')?.value||"";
+    const receipt=document.querySelector('[data-vip-receipt="'+id+'"]')?.value||"";
+    if(!invoice){alert("Ajoute la référence de facture avant d’activer le VIP.");return}
+    if(!receipt){alert("Ajoute la référence du reçu avant d’activer le VIP.");return}
+    if(!confirm("Confirmer le paiement reçu et activer le VIP pour un mois?"))return;
+    try{await adminCall("activate_vip_manual",{requestId:id,invoiceRef:invoice,receiptRef:receipt});await refreshAdmin()}catch(e){alert(e.message)}
+  });
+}
+
+function renderBoutiqueAdmin(){
+  const quotes=adminData.shopQuotes||[],orders=adminData.orders||[],shops=adminData.shops||[],products=adminData.products||[];
+  const qb=$("shopQuoteList"),ob=$("orderRequestList"),sb=$("shopAdminList"),pb=$("productAdminList"),sel=$("productShop");
+  if(qb){
+    qb.innerHTML=quotes.length?quotes.map(q=>`<div class="card" style="margin-bottom:10px"><strong>${esc(q.artist_name)}</strong><div class="small">${esc(q.contact_name||"")} · ${esc(q.contact_email)} · ${q.product_count} article(s)</div><div class="small">${esc(q.product_types||"")}</div><p>${esc(q.details||"")}</p><div class="row"><button class="secondary quoteState" data-id="${esc(q.id)}" data-state="contacted">CONTACTÉ</button><button class="secondary quoteState" data-id="${esc(q.id)}" data-state="quoted">DEVIS ENVOYÉ</button><button class="goodbtn quoteState" data-id="${esc(q.id)}" data-state="accepted">ACCEPTÉ</button><button class="danger quoteState" data-id="${esc(q.id)}" data-state="rejected">REFUSÉ</button></div></div>`).join(""):'<div class="notice">Aucune demande de boutique.</div>';
+    qb.querySelectorAll(".quoteState").forEach(b=>b.onclick=async()=>{try{await adminCall("set_shop_quote_status",{requestId:b.dataset.id,status:b.dataset.state});await refreshAdmin()}catch(e){alert(e.message)}});
+  }
+  if(ob){
+    ob.innerHTML=orders.length?orders.map(o=>`<div class="card" style="margin-bottom:10px"><strong>${esc(o.customer_name)}</strong><div class="small">${esc(o.customer_email)} · ${money(o.total_cents||0)} · ${esc(String(o.status||"").toUpperCase())}</div><div class="row" style="margin-top:8px"><button class="secondary orderState" data-id="${esc(o.id)}" data-state="contacted">CONTACTÉ</button><button class="secondary orderState" data-id="${esc(o.id)}" data-state="confirmed">CONFIRMÉ</button><button class="goodbtn orderState" data-id="${esc(o.id)}" data-state="paid">PAYÉ</button><button class="secondary orderState" data-id="${esc(o.id)}" data-state="fulfilled">LIVRÉ</button></div></div>`).join(""):'<div class="notice">Aucune demande de commande.</div>';
+    ob.querySelectorAll(".orderState").forEach(b=>b.onclick=async()=>{try{await adminCall("set_order_status",{requestId:b.dataset.id,status:b.dataset.state});await refreshAdmin()}catch(e){alert(e.message)}});
+  }
+  if(sb)sb.innerHTML=shops.length?shops.map(s=>`<div class="card"><strong>${esc(s.artist_name)}</strong><div class="small">${esc(s.slug)} · ${esc(String(s.status||"").toUpperCase())}</div></div>`).join(""):'<div class="notice">Aucune vitrine.</div>';
+  if(pb)pb.innerHTML=products.length?products.map(p=>`<div class="card"><strong>${esc(p.name)}</strong><div class="small">${p.price_cents==null?"Sur demande":money(p.price_cents)} · ${p.active?"ACTIF":"INACTIF"}</div></div>`).join(""):'<div class="notice">Aucun produit.</div>';
+  if(sel)sel.innerHTML=shops.map(s=>`<option value="${esc(s.id)}">${esc(s.artist_name)}</option>`).join("");
+}
+
+$("createShopBtn").onclick=async()=>{
+  try{
+    await adminCall("create_shop",{artistName:$("newShopArtist").value,slug:$("newShopSlug").value,description:$("newShopDescription").value,status:"active"});
+    $("newShopArtist").value="";$("newShopSlug").value="";$("newShopDescription").value="";await refreshAdmin();
+  }catch(e){alert(e.message)}
+};
+$("saveProductBtn").onclick=async()=>{
+  try{
+    const price=$("productPrice").value.trim();
+    await adminCall("save_product",{shopId:$("productShop").value,name:$("productName").value,category:$("productCategory").value,description:$("productDescription").value,priceCents:price===""?null:Math.round(Number(price)*100),imageUrl:$("productImage").value,purchaseUrl:$("productPurchase").value,active:true});
+    ["productName","productCategory","productPrice","productDescription","productImage","productPurchase"].forEach(id=>$(id).value="");await refreshAdmin();await loadPublic();
+  }catch(e){alert(e.message)}
+};
 
 function renderFacebook(){const ps=adminData.participants||[];$("fbParticipant").innerHTML=ps.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("");genFb()}
 function genFb(){const ps=adminData.participants||[],p=ps.find(x=>x.id===$("fbParticipant").value)||ps[0],type=$("fbType").value;let txt="";
