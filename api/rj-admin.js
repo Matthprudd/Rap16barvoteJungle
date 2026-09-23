@@ -7,11 +7,11 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'POST required' });
   }
 
-  const url = 'https://hixkezzjgxfzmymkfyko.supabase.co/functions/v1/rj-admin';
+  const url = 'https://dfdrbdoqewqttwjvfcwk.supabase.co/functions/v1/rj-admin';
   try {
     const headers = {
       'Content-Type': 'application/json',
-      'apikey': 'sb_publishable_5yp_LpH40HLd5C4btrltyw_r7wUrSFS'
+      'apikey': 'sb_publishable_FQ4pz3CMU6F7Rs8HaaAxdQ_GQqY0zfe'
     };
     if (req.headers.authorization) headers.Authorization = req.headers.authorization;
 
