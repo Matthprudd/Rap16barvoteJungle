@@ -2195,6 +2195,17 @@ function renderResults(){
 $("exportCsv").onclick=()=>{const rows=[["vote_id","nom_votant","courriel","participant","date"]];(adminData.votes||[]).forEach(v=>rows.push([v.vote_id,v.voter_name,v.voter_email,v.participant_name,v.created_at]));const csv=rows.map(r=>r.map(x=>`"${String(x??"").replaceAll('"','""')}"`).join(",")).join("\n");const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8"}),u=URL.createObjectURL(blob),a=document.createElement("a");a.href=u;a.download="rap-jungle-votes.csv";a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)};
 
 
+function youtubeLoopEmbed(url){
+  try{
+    const u=new URL(url);
+    const parts=u.pathname.split("/").filter(Boolean);
+    const id=parts[0]==="embed"?(parts[1]||""):"";
+    if(!id)return url;
+    const p=new URLSearchParams({autoplay:"1",mute:"1",loop:"1",playlist:id,playsinline:"1",rel:"0",modestbranding:"1"});
+    return "https://www.youtube.com/embed/"+id+"?"+p.toString();
+  }catch{return url}
+}
+
 function renderVipAdmin(){
   const contentRows=adminData.vipContent||[];
   const contentBox=$("vipContentAdminList");
@@ -2210,6 +2221,7 @@ function renderVipAdmin(){
           <span class="status">${v.storage_path?"VIDÉO PRÊTE":"SANS VIDÉO"}</span>
         </div>
         <p class="small">${esc(v.description||"")}</p>
+        ${v.content_url?`<div style="margin:12px 0"><iframe src="${esc(youtubeLoopEmbed(v.content_url))}" style="width:100%;aspect-ratio:16/9;border:0;border-radius:12px;background:#000" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></div>`:""}
         <div class="grid">
           <div style="grid-column:1/-1">
             <label>Option 1 — fichier vidéo</label>
