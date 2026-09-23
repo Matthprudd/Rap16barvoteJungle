@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="Rap Jungle : 16 Bar Challenge, répertoire des artistes, boutique et espace VIP.">
-<title>Rap Jungle × MEYDEN — 16 Bar, Artistes, Boutique et VIP</title>
+<meta name="description" content="Rap Jungle : 16 Bars Challenge, répertoire des artistes, boutique et espace VIP.">
+<title>Rap Jungle × MEYDEN — 16 Bars, Artistes, Boutique et VIP</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <style>
@@ -417,12 +417,12 @@ input:focus,select:focus,textarea:focus{
 <body>
 <div id="lionGuide"><div id="lionGuideTrack"></div><div id="lionGuideLeaves"></div><div id="lionGuideIcon">🦁</div></div><div class="wrap">
 <header class="top">
-  <div><div class="brand">RAP JUNGLE</div><div class="sub">16 BAR CHALLENGE × MEYDEN</div></div>
+  <div><div class="brand">RAP JUNGLE</div><div class="sub">16 BARS CHALLENGE × MEYDEN</div></div>
   <nav class="main-nav" aria-label="Navigation principale"><button id="homeBtn" class="secondary">ACCUEIL</button><a class="btn secondary" href="https://r-pertoirerapjungle.vercel.app/">ARTISTES</a><a class="btn secondary" href="https://rapjungleboutique.vercel.app/#catalogue">BOUTIQUE</a><a class="btn secondary" href="https://rapjunglevip.vercel.app/">VIP</a><button id="adminBtn" class="secondary">ADMIN</button></nav>
 </header>
 
 <main id="homeView">
-  <section class="hero"><h1>16 Bar Challenge</h1><p>Participe au challenge, vote pour ton MC préféré et découvre tout l’univers Rap Jungle.</p></section>
+  <section class="hero"><h1>16 Bars Challenge</h1><p>Participe au challenge, vote pour ton MC préféré et découvre tout l’univers Rap Jungle.</p></section>
   <section id="publicMonitorPanel" class="panel">
     <div class="row" style="justify-content:space-between;align-items:center">
       <div>
@@ -518,7 +518,7 @@ input:focus,select:focus,textarea:focus{
       <div><label>Instagram / TikTok / Facebook</label><input id="subSocial"></div>
     </div>
     <div style="margin-top:12px"><label>Présentation</label><textarea id="subBio"></textarea></div>
-    <div style="margin-top:12px"><label>Vidéo 16 Bar</label><input id="subVideo" type="file" accept="video/mp4,video/webm,video/quicktime,video/*">
+    <div style="margin-top:12px"><label>Vidéo 16 Bars</label><input id="subVideo" type="file" accept="video/mp4,video/webm,video/quicktime,video/*">
       <div class="small" style="margin-top:6px">
         Les 16 Bars peuvent durer 1, 2, 3 ou 4 minutes : il n’y a aucune limite de durée.
         Si la vidéo est trop lourde ou incompatible, utilise le Convertisseur 45 Mo Rap Jungle intégré ci-dessous.
@@ -2562,8 +2562,8 @@ $("saveProductBtn").onclick=async()=>{
 
 function renderFacebook(){const ps=adminData.participants||[];$("fbParticipant").innerHTML=ps.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("");genFb()}
 function genFb(){const ps=adminData.participants||[],p=ps.find(x=>x.id===$("fbParticipant").value)||ps[0],type=$("fbType").value;let txt="";
-if(type==="challenge")txt=`RAP JUNGLE — ${challenge?.name||"16 Bar Challenge"}\n\nThème : ${challenge?.theme||"Libre"}\n\nLe challenge est ouvert. Tu veux participer? Ouvre l'application Rap Jungle et dépose ton 16 Bar.\n\nTu veux voter? Utilise l'application officielle.\n\n${location.href.split("?")[0]}`;
-else if(p)txt=`RAP JUNGLE — 16 BAR CHALLENGE\n\n${p.name} est officiellement en compétition.\n\nThème : ${challenge?.theme||"Libre"}\n\nRegarde son 16 Bar et vote ici :\n${location.href.split("?")[0]+"?vote="+p.code}\n\nUn courriel = un vote.`;
+if(type==="challenge")txt=`RAP JUNGLE — ${challenge?.name||"16 Bars Challenge"}\n\nThème : ${challenge?.theme||"Libre"}\n\nLe challenge est ouvert. Tu veux participer? Ouvre l'application Rap Jungle et dépose ton 16 Bars.\n\nTu veux voter? Utilise l'application officielle.\n\n${location.href.split("?")[0]}`;
+else if(p)txt=`RAP JUNGLE — 16 BARS CHALLENGE\n\n${p.name} est officiellement en compétition.\n\nThème : ${challenge?.theme||"Libre"}\n\nRegarde son 16 Bars et vote ici :\n${location.href.split("?")[0]+"?vote="+p.code}\n\nUn courriel = un vote.`;
 $("fbCaption").value=txt;$("fbText").textContent=txt;$("fbMedia").innerHTML=p?.video_url?`<video src="${esc(p.video_url)}" controls preload="auto" playsinline webkit-playsinline></video>`:"";$("fbPreview").classList.remove("hidden")}
 $("genFb").onclick=genFb;$("fbParticipant").onchange=genFb;$("fbType").onchange=genFb;
 $("copyFb").onclick=async()=>{await navigator.clipboard.writeText($("fbCaption").value);alert("Texte copié")};
