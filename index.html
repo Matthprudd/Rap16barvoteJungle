@@ -716,6 +716,8 @@ input:focus,select:focus,textarea:focus{
 const SUPABASE_URL='https://dfdrbdoqewqttwjvfcwk.supabase.co';
 const SUPABASE_KEY='sb_publishable_FQ4pz3CMU6F7Rs8HaaAxdQ_GQqY0zfe';
 const ADMIN_ENDPOINT="/api/rj-admin";
+const ARTIST_ADMIN_ENDPOINT="https://agijgxiljamrseyzvshr.supabase.co/functions/v1/rj-artists-admin";
+const ARTIST_SUPABASE_KEY="sb_publishable_T-QzG6_U5C2P63c8DTULtA_hv5AlF02";
 const UPLOAD_ENDPOINT=SUPABASE_URL+"/functions/v1/rj-upload-url";
 const STORAGE_TUS_ENDPOINT=SUPABASE_URL+"/storage/v1/upload/resumable";
 const STORAGE_TUS_DIRECT_ENDPOINT="https://dfdrbdoqewqttwjvfcwk.storage.supabase.co/storage/v1/upload/resumable";
@@ -1647,6 +1649,19 @@ async function adminCall(action,payload={}){
   return j;
 }
 
+async function artistAdminCall(action,payload={}){
+  if(!adminCred)throw new Error("Session admin absente");
+  if(adminCred.mode!=="legacy")throw new Error("La gestion des artistes utilise présentement l’accès admin historique.");
+  const r=await fetch(ARTIST_ADMIN_ENDPOINT,{
+    method:"POST",
+    headers:{"Content-Type":"application/json","apikey":ARTIST_SUPABASE_KEY},
+    body:JSON.stringify({action,...payload,adminEmail:adminCred.email,adminCode:adminCred.code})
+  });
+  const j=await r.json();
+  if(!r.ok||j.error)throw new Error(j.error||"Erreur admin artistes");
+  return j;
+}
+
 function renderAdminAuth(){
   adminCred=JSON.parse(sessionStorage.getItem("rj_admin")||"null");
   $("adminLogin").classList.toggle("hidden",!!adminCred);
@@ -1725,7 +1740,7 @@ document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{document.querySelect
 
 async function refreshAdmin(){
   try{
-    const d=await adminCall("dashboard");adminData=d;challenge=d.active||challenge;participants=d.participants||participants;
+    const [d,a]=await Promise.all([adminCall("dashboard"),artistAdminCall("list_artists").catch(()=>({artists:[]}))]);adminData={...d,artists:a.artists||[]};challenge=d.active||challenge;participants=d.participants||participants;
     $("chName").value=challenge?.name||"";$("chTheme").value=challenge?.theme||"";$("chDeadline").value=challenge?.deadline||"";$("toggleVoting").textContent=challenge?.voting_open?"FERMER LES VOTES":"ROUVRIR LES VOTES";
     renderSubmissions();renderParticipantsAdmin();renderMediaAdmin();renderArtistsAdmin();renderVipAdmin();renderBoutiqueAdmin();renderResults();renderFacebook();renderPublic();renderPublicMedia();
   }catch(e){alert(e.message)}
@@ -2113,7 +2128,7 @@ function renderArtistsAdmin(){
 
   document.querySelectorAll(".artistApprove").forEach(b=>b.onclick=async()=>{
     try{
-      await adminCall("set_artist_status",{artistId:b.dataset.id,status:"approved",adminNote:noteFor(b.dataset.id)});
+      await artistAdminCall("set_artist_status",{artistId:b.dataset.id,status:"approved",adminNote:noteFor(b.dataset.id)});
       await refreshAdmin();
     }catch(e){alert(e.message)}
   });
@@ -2121,14 +2136,14 @@ function renderArtistsAdmin(){
   document.querySelectorAll(".artistReject").forEach(b=>b.onclick=async()=>{
     if(!confirm("Refuser cette fiche artiste? Elle ne sera pas visible dans le répertoire public."))return;
     try{
-      await adminCall("set_artist_status",{artistId:b.dataset.id,status:"rejected",adminNote:noteFor(b.dataset.id)});
+      await artistAdminCall("set_artist_status",{artistId:b.dataset.id,status:"rejected",adminNote:noteFor(b.dataset.id)});
       await refreshAdmin();
     }catch(e){alert(e.message)}
   });
 
   document.querySelectorAll(".artistPending").forEach(b=>b.onclick=async()=>{
     try{
-      await adminCall("set_artist_status",{artistId:b.dataset.id,status:"pending",adminNote:noteFor(b.dataset.id)});
+      await artistAdminCall("set_artist_status",{artistId:b.dataset.id,status:"pending",adminNote:noteFor(b.dataset.id)});
       await refreshAdmin();
     }catch(e){alert(e.message)}
   });
@@ -2138,7 +2153,7 @@ function renderArtistsAdmin(){
     const ok=confirm(`SUPPRESSION DÉFINITIVE : supprimer la fiche artiste « ${a?.stage_name||"Artiste"} » et sa photo de profil? Le compte de connexion Supabase de l’artiste sera conservé.`);
     if(!ok)return;
     try{
-      await adminCall("delete_artist_profile",{artistId:b.dataset.id});
+      await artistAdminCall("delete_artist_profile",{artistId:b.dataset.id});
       await refreshAdmin();
     }catch(e){alert(e.message)}
   });
