@@ -2212,14 +2212,20 @@ function renderVipAdmin(){
         <p class="small">${esc(v.description||"")}</p>
         <div class="grid">
           <div style="grid-column:1/-1">
-            <label>Vidéo éducative</label>
+            <label>Option 1 — fichier vidéo</label>
             <input class="vipMediaFile" data-id="${esc(v.id)}" type="file" accept="video/mp4,video/webm">
             <div class="small">Maximum 45 Mo. Si le fichier est plus lourd, utilise Convertir45 avant de l’envoyer.</div>
           </div>
+          <div style="grid-column:1/-1">
+            <label>Option 2 — lien YouTube</label>
+            <input class="vipYoutubeUrl" data-id="${esc(v.id)}" type="url" placeholder="https://www.youtube.com/watch?v=..." value="${esc(v.content_url||"")}">
+            <div class="small">Tu peux utiliser un lien youtube.com ou youtu.be. L’enregistrement d’un lien YouTube remplace le fichier vidéo associé à cette capsule.</div>
+          </div>
         </div>
         <div class="row" style="margin-top:10px">
-          <button class="goodbtn vipMediaUpload" data-id="${esc(v.id)}">DÉPOSER / REMPLACER LA VIDÉO</button>
-          ${v.storage_path?`<button class="danger vipMediaRemove" data-id="${esc(v.id)}">RETIRER LA VIDÉO</button>`:""}
+          <button class="goodbtn vipMediaUpload" data-id="${esc(v.id)}">DÉPOSER / REMPLACER LE FICHIER</button>
+          <button class="secondary vipYoutubeSave" data-id="${esc(v.id)}">ENREGISTRER LE LIEN YOUTUBE</button>
+          ${(v.storage_path||v.content_url)?`<button class="danger vipMediaRemove" data-id="${esc(v.id)}">RETIRER LE MÉDIA</button>`:""}
         </div>
         <div class="notice hidden vipMediaMsg" data-id="${esc(v.id)}"></div>
       </article>
@@ -2253,11 +2259,28 @@ function renderVipAdmin(){
       }
     });
 
+    contentBox.querySelectorAll(".vipYoutubeSave").forEach(b=>b.onclick=async()=>{
+      const id=b.dataset.id;
+      const input=contentBox.querySelector('.vipYoutubeUrl[data-id="'+CSS.escape(id)+'"]');
+      const url=input?.value?.trim()||"";
+      if(!url)return vipMsg(id,"Colle un lien YouTube avant de continuer.","bad");
+      b.disabled=true;b.textContent="ENREGISTREMENT...";
+      try{
+        await adminCall("set_vip_youtube_url",{contentId:id,url});
+        vipMsg(id,"Lien YouTube enregistré pour cette capsule.","good");
+        await refreshAdmin();
+      }catch(e){
+        vipMsg(id,"Erreur : "+(e?.message||String(e)),"bad");
+      }finally{
+        b.disabled=false;b.textContent="ENREGISTRER LE LIEN YOUTUBE";
+      }
+    });
+
     contentBox.querySelectorAll(".vipMediaRemove").forEach(b=>b.onclick=async()=>{
       const id=b.dataset.id;
-      if(!confirm("Retirer la vidéo de cette capsule VIP?"))return;
+      if(!confirm("Retirer le média de cette capsule VIP?"))return;
       try{
-        await adminCall("remove_vip_media",{contentId:id});
+        await adminCall("clear_vip_media",{contentId:id});
         await refreshAdmin();
       }catch(e){vipMsg(id,"Erreur : "+(e?.message||String(e)),"bad")}
     });
