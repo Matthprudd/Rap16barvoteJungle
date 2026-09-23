@@ -435,6 +435,16 @@ input:focus,select:focus,textarea:focus{
     <button id="publicMonitorPlay" class="goodbtn hidden" type="button" style="width:100%;margin-top:10px">LANCER LA VIDÉO</button>
     <div id="publicMonitorError" class="notice bad hidden"></div>
   </section>
+  <section class="panel" id="newsFeedPanel">
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <div>
+        <h2 class="jungle-title" style="margin:0 0 5px">FIL D’ACTUALITÉ</h2>
+        <div class="small">Actualités, annonces et promotions Rap Jungle. Chaque publication disparaît automatiquement après 7 jours.</div>
+      </div>
+      <span id="newsFeedCount" class="status">0 ACTUALITÉ</span>
+    </div>
+    <div id="newsFeed" style="margin-top:12px"></div>
+  </section>
   <section class="cards">
     <article class="card"><div class="avatar">16</div><h2>Participer</h2><p class="small">Remplis ta fiche et dépose ta vidéo. Un admin doit l'approuver avant publication.</p><button id="participateBtn">PARTICIPER</button></article>
     <article class="card"><div class="avatar">✓</div><h2>Voter</h2><p class="small">Choisis un participant et confirme ton vote avec ton nom et ton courriel.</p><button id="voteBtn">VOTER</button></article>
@@ -574,6 +584,7 @@ input:focus,select:focus,textarea:focus{
       <button class="tab" data-tab="aMedia">MONITEUR</button>
       <button class="tab" data-tab="aArtists">ARTISTES</button>
       <button class="tab" data-tab="aVip">VIP</button>
+      <button class="tab" data-tab="aNews">ACTUALITÉS</button>
       <button class="tab" data-tab="aBoutique">BOUTIQUE</button>
       <button class="tab" data-tab="aFacebook">FACEBOOK</button>
       <button class="tab" data-tab="aResults">RÉSULTATS</button>
@@ -673,6 +684,27 @@ input:focus,select:focus,textarea:focus{
       </div>
     </section>
 
+    <section id="aNews" class="adminTab hidden">
+      <div class="panel">
+        <h2 class="jungle-title">Publier dans le fil d’actualité</h2>
+        <div class="notice">Les publications restent visibles 7 jours, puis sont supprimées automatiquement. Tu peux conserver une copie permanente dans une fiche artiste.</div>
+        <div class="grid">
+          <div><label>Nom affiché</label><input id="newsAdminAuthor" placeholder="Rap Jungle / nom de l’artiste"></div>
+          <div><label>Titre</label><input id="newsAdminTitle" maxlength="160"></div>
+          <div style="grid-column:1/-1"><label>Texte</label><textarea id="newsAdminBody" maxlength="3000"></textarea></div>
+          <div style="grid-column:1/-1"><label>Lien externe (optionnel)</label><input id="newsAdminLink" type="url" placeholder="https://..."></div>
+          <div style="grid-column:1/-1"><label>Copie dans une fiche artiste (optionnel)</label><select id="newsAdminArtist"><option value="">Aucune fiche</option></select></div>
+        </div>
+        <label style="display:flex;gap:8px;align-items:center;margin-top:10px"><input id="newsAdminKeep" type="checkbox" style="width:auto;min-height:auto"> Conserver une copie permanente dans la fiche artiste choisie</label>
+        <button id="newsAdminPublish" class="goodbtn" style="margin-top:12px">PUBLIER POUR 7 JOURS</button>
+        <div id="newsAdminMsg" class="notice hidden"></div>
+      </div>
+      <div class="panel">
+        <h2 class="jungle-title">Publications actives</h2>
+        <div id="newsAdminList"></div>
+      </div>
+    </section>
+
     <section id="aBoutique" class="adminTab hidden">
       <div class="panel">
         <h2 class="jungle-title">Demandes de boutique</h2>
@@ -740,7 +772,8 @@ function note(id,text,type="good"){const e=$(id);e.textContent=text;e.className=
 let challenge=null,participants=[],selectedCode=new URLSearchParams(location.search).get("vote")||null;
 let convertedUploadRef=null;
 let currentMedia=null;
-let adminData={submissions:[],participants:[],votes:[],media:[],artists:[],active:null};
+let adminData={submissions:[],participants:[],votes:[],media:[],artists:[],vipContent:[],newsPosts:[],active:null};
+let newsPosts=[];
 let adminCred=null;
 
 async function loadPublic(){
@@ -751,9 +784,36 @@ async function loadPublic(){
     const p=await sb.from("rj_participants").select("*").eq("challenge_id",challenge.id).eq("status","approved").order("created_at",{ascending:true});
     if(!p.error)participants=p.data||[];
   }
-  await loadPublicMedia();
+  await Promise.all([loadPublicMedia(),loadPublicNews()]);
   renderPublic();
+  renderNewsFeed();
 }
+async function loadPublicNews(){
+  const n=await sb.from("rj_news_posts").select("*").gt("expires_at",new Date().toISOString()).order("created_at",{ascending:false}).limit(50);
+  if(n.error){console.warn(n.error);newsPosts=[];return}
+  newsPosts=n.data||[];
+}
+
+function renderNewsFeed(){
+  const box=$("newsFeed"),count=$("newsFeedCount");
+  if(!box)return;
+  count.textContent=newsPosts.length+" ACTUALITÉ"+(newsPosts.length===1?"":"S");
+  box.innerHTML=newsPosts.map(n=>{
+    const remaining=Math.max(0,Math.ceil((new Date(n.expires_at)-Date.now())/86400000));
+    const link=n.link_url&&/^https?:\/\//i.test(n.link_url)
+      ? `<a class="btn secondary" href="${esc(n.link_url)}" target="_blank" rel="noopener">OUVRIR LE LIEN</a>`
+      : "";
+    return `<article class="item">
+      <div class="row" style="justify-content:space-between;align-items:flex-start">
+        <div><strong style="font-size:20px">${esc(n.title)}</strong><div class="small">Par ${esc(n.author_name)} · ${new Date(n.created_at).toLocaleString("fr-CA")}</div></div>
+        <span class="status">${remaining} JOUR${remaining===1?"":"S"}</span>
+      </div>
+      <p style="white-space:pre-wrap">${esc(n.body)}</p>
+      ${link}
+    </article>`;
+  }).join("")||'<div class="notice">Aucune actualité active pour le moment.</div>';
+}
+
 async function loadPublicMedia(){
   const m=await sb.from("rj_public_media").select("*").eq("active",true).order("updated_at",{ascending:false}).limit(1);
   if(m.error){console.warn(m.error);return}
@@ -1766,7 +1826,7 @@ async function refreshAdmin(){
   try{
     const [d,a]=await Promise.all([adminCall("dashboard"),artistAdminCall("list_artists").catch(()=>({artists:[]}))]);adminData={...d,artists:a.artists||[]};challenge=d.active||challenge;participants=d.participants||participants;
     $("chName").value=challenge?.name||"";$("chTheme").value=challenge?.theme||"";$("chDeadline").value=challenge?.deadline||"";$("toggleVoting").textContent=challenge?.voting_open?"FERMER LES VOTES":"ROUVRIR LES VOTES";
-    renderSubmissions();renderParticipantsAdmin();renderMediaAdmin();renderArtistsAdmin();renderVipAdmin();renderBoutiqueAdmin();renderResults();renderFacebook();renderPublic();renderPublicMedia();
+    renderSubmissions();renderParticipantsAdmin();renderMediaAdmin();renderArtistsAdmin();renderVipAdmin();renderNewsAdmin();renderBoutiqueAdmin();renderResults();renderFacebook();renderPublic();renderPublicMedia();
   }catch(e){alert(e.message)}
 }
 $("saveChallenge").onclick=async()=>{
@@ -2194,6 +2254,59 @@ function renderResults(){
 }
 $("exportCsv").onclick=()=>{const rows=[["vote_id","nom_votant","courriel","participant","date"]];(adminData.votes||[]).forEach(v=>rows.push([v.vote_id,v.voter_name,v.voter_email,v.participant_name,v.created_at]));const csv=rows.map(r=>r.map(x=>`"${String(x??"").replaceAll('"','""')}"`).join(",")).join("\n");const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8"}),u=URL.createObjectURL(blob),a=document.createElement("a");a.href=u;a.download="rap-jungle-votes.csv";a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)};
 
+
+function renderNewsAdmin(){
+  const artistSel=$("newsAdminArtist");
+  if(artistSel){
+    const approved=(adminData.artists||[]).filter(a=>a.status==="approved");
+    const current=artistSel.value;
+    artistSel.innerHTML='<option value="">Aucune fiche</option>'+approved.map(a=>`<option value="${esc(a.id)}">${esc(a.stage_name)}</option>`).join("");
+    if([...artistSel.options].some(o=>o.value===current))artistSel.value=current;
+  }
+
+  const rows=(adminData.newsPosts||[]).filter(n=>new Date(n.expires_at)>new Date());
+  const box=$("newsAdminList");
+  if(box){
+    box.innerHTML=rows.map(n=>`<article class="item">
+      <div class="row" style="justify-content:space-between;align-items:flex-start">
+        <div><strong>${esc(n.title)}</strong><div class="small">${esc(n.author_name)} · ${new Date(n.created_at).toLocaleString("fr-CA")}</div></div>
+        <span class="status">${n.keep_profile_copy?"COPIE ARTISTE":"7 JOURS"}</span>
+      </div>
+      <p style="white-space:pre-wrap">${esc(n.body)}</p>
+      <button class="danger newsDelete" data-id="${esc(n.id)}">SUPPRIMER MAINTENANT</button>
+    </article>`).join("")||'<div class="notice">Aucune publication active.</div>';
+
+    box.querySelectorAll(".newsDelete").forEach(b=>b.onclick=async()=>{
+      if(!confirm("Supprimer cette actualité maintenant?"))return;
+      try{await adminCall("delete_news_post",{postId:b.dataset.id});await refreshAdmin();await loadPublic()}catch(e){alert(e.message)}
+    });
+  }
+}
+
+if($("newsAdminPublish")){
+  $("newsAdminPublish").onclick=async()=>{
+    const title=$("newsAdminTitle").value.trim();
+    const body=$("newsAdminBody").value.trim();
+    if(!title||!body)return note("newsAdminMsg","Titre et texte requis.","bad");
+    try{
+      await adminCall("create_news_post",{
+        authorName:$("newsAdminAuthor").value.trim()||"Rap Jungle",
+        title,
+        body,
+        linkUrl:$("newsAdminLink").value.trim(),
+        artistProfileId:$("newsAdminArtist").value||null,
+        keepProfileCopy:$("newsAdminKeep").checked
+      });
+      $("newsAdminTitle").value="";
+      $("newsAdminBody").value="";
+      $("newsAdminLink").value="";
+      $("newsAdminKeep").checked=false;
+      note("newsAdminMsg","Actualité publiée. Elle expirera automatiquement dans 7 jours.","good");
+      await refreshAdmin();
+      await loadPublic();
+    }catch(e){note("newsAdminMsg","Erreur : "+(e?.message||String(e)),"bad")}
+  };
+}
 
 function youtubeLoopEmbed(url){
   try{
