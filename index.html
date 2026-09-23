@@ -723,6 +723,7 @@ const STORAGE_TUS_ENDPOINT=SUPABASE_URL+"/storage/v1/upload/resumable";
 const STORAGE_TUS_DIRECT_ENDPOINT="https://dfdrbdoqewqttwjvfcwk.storage.supabase.co/storage/v1/upload/resumable";
 const MAX_VIDEO_BYTES=45*1024*1024;
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const artistSb=window.supabase.createClient("https://agijgxiljamrseyzvshr.supabase.co",ARTIST_SUPABASE_KEY);
 
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
@@ -1629,7 +1630,12 @@ async function adminCall(action,payload={}){
   const headers={"Content-Type":"application/json","apikey":SUPABASE_KEY};
   const body={action,...payload};
 
-  if(adminCred.mode==="supabase"){
+  if(adminCred.mode==="supabase-artists"){
+    const {data:{session},error}=await artistSb.auth.getSession();
+    if(error || !session?.access_token)throw new Error("Session Supabase expirée. Reconnecte-toi à l’admin.");
+    headers.Authorization="Bearer "+session.access_token;
+    body.adminEmail=adminCred.email;
+  }else if(adminCred.mode==="supabase"){
     const {data:{session},error}=await sb.auth.getSession();
     if(error || !session?.access_token)throw new Error("Session Supabase expirée. Reconnecte-toi à l’admin.");
     headers.Authorization="Bearer "+session.access_token;
@@ -1651,11 +1657,21 @@ async function adminCall(action,payload={}){
 
 async function artistAdminCall(action,payload={}){
   if(!adminCred)throw new Error("Session admin absente");
-  if(adminCred.mode!=="legacy")throw new Error("La gestion des artistes utilise présentement l’accès admin historique.");
+  const headers={"Content-Type":"application/json","apikey":ARTIST_SUPABASE_KEY};
+  const body={action,...payload};
+  if(adminCred.mode==="supabase-artists"){
+    const {data:{session},error}=await artistSb.auth.getSession();
+    if(error || !session?.access_token)throw new Error("Session Supabase expirée. Reconnecte-toi à l’admin.");
+    headers.Authorization="Bearer "+session.access_token;
+    body.adminEmail=adminCred.email;
+  }else{
+    body.adminEmail=adminCred.email;
+    body.adminCode=adminCred.code;
+  }
   const r=await fetch(ARTIST_ADMIN_ENDPOINT,{
     method:"POST",
-    headers:{"Content-Type":"application/json","apikey":ARTIST_SUPABASE_KEY},
-    body:JSON.stringify({action,...payload,adminEmail:adminCred.email,adminCode:adminCred.code})
+    headers,
+    body:JSON.stringify(body)
   });
   const j=await r.json();
   if(!r.ok||j.error)throw new Error(j.error||"Erreur admin artistes");
@@ -1699,19 +1715,22 @@ $("adminLoginBtn").onclick=async()=>{
       return;
     }
 
-    // 2. Nouveau mode : compte Supabase avec app_metadata.role = admin.
-    const {data,error}=await sb.auth.signInWithPassword({email,password:secret});
+    // 2. Connexion par mot de passe sur le projet Rap Jungle Artistes.
+    const {data,error}=await artistSb.auth.signInWithPassword({email,password:secret});
     if(error)throw new Error("Connexion refusée.");
     const user=data?.user;
-    if(!user || user.app_metadata?.role!=="admin"){
-      await sb.auth.signOut();
-      throw new Error("Ce compte Supabase n’a pas le rôle admin.");
+    if(!user)throw new Error("Connexion refusée.");
+
+    const account=await artistSb.from("user_accounts").select("role,active").eq("user_id",user.id).maybeSingle();
+    if(account.error || !account.data?.active || account.data?.role!=="admin"){
+      await artistSb.auth.signOut();
+      throw new Error("Ce compte n’a pas le rôle admin.");
     }
 
-    adminCred={email:user.email||email,mode:"supabase"};
+    adminCred={email:user.email||email,mode:"supabase-artists"};
     sessionStorage.setItem("rj_admin",JSON.stringify(adminCred));
 
-    // Vérification réelle auprès de la fonction admin.
+    // Vérification réelle auprès des fonctions admin.
     const check=await adminCall("login");
     $("adminWho").textContent="Connecté : "+(check.admin?.name||adminCred.email)+" — ADMIN SUPABASE";
     $("adminLogin").classList.add("hidden");
