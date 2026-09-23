@@ -662,6 +662,11 @@ input:focus,select:focus,textarea:focus{
 
     <section id="aVip" class="adminTab hidden">
       <div class="panel">
+        <h2 class="jungle-title">Capsules éducatives VIP</h2>
+        <div class="notice">Associe une vidéo à chaque capsule éducative. Les vidéos sont stockées dans un espace privé et ne sont accessibles qu’aux membres VIP actifs. Maximum 45 Mo par vidéo; MP4 H.264/AAC recommandé.</div>
+        <div id="vipContentAdminList" style="margin-top:12px"></div>
+      </div>
+      <div class="panel">
         <h2 class="jungle-title">Demandes VIP — paiement manuel</h2>
         <div class="notice">VIP : 5,99 $ CAD / mois. Processus obligatoire : facture → virement bancaire → preuve de paiement → validation → activation → reçu. Aucun débit automatique.</div>
         <div id="vipRequestList" style="margin-top:12px"></div>
@@ -2191,6 +2196,73 @@ $("exportCsv").onclick=()=>{const rows=[["vote_id","nom_votant","courriel","part
 
 
 function renderVipAdmin(){
+  const contentRows=adminData.vipContent||[];
+  const contentBox=$("vipContentAdminList");
+
+  if(contentBox){
+    contentBox.innerHTML=contentRows.map(v=>`
+      <article class="item">
+        <div class="row" style="justify-content:space-between;align-items:flex-start">
+          <div>
+            <strong style="font-size:18px">${esc(v.title)}</strong>
+            <div class="small">${esc(v.category||"VIP")} · ${esc(v.content_type||"Capsule")} · ${esc(v.duration_label||"")}</div>
+          </div>
+          <span class="status">${v.storage_path?"VIDÉO PRÊTE":"SANS VIDÉO"}</span>
+        </div>
+        <p class="small">${esc(v.description||"")}</p>
+        <div class="grid">
+          <div style="grid-column:1/-1">
+            <label>Vidéo éducative</label>
+            <input class="vipMediaFile" data-id="${esc(v.id)}" type="file" accept="video/mp4,video/webm">
+            <div class="small">Maximum 45 Mo. Si le fichier est plus lourd, utilise Convertir45 avant de l’envoyer.</div>
+          </div>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <button class="goodbtn vipMediaUpload" data-id="${esc(v.id)}">DÉPOSER / REMPLACER LA VIDÉO</button>
+          ${v.storage_path?`<button class="danger vipMediaRemove" data-id="${esc(v.id)}">RETIRER LA VIDÉO</button>`:""}
+        </div>
+        <div class="notice hidden vipMediaMsg" data-id="${esc(v.id)}"></div>
+      </article>
+    `).join("")||'<div class="notice">Aucune capsule VIP configurée.</div>';
+
+    const vipMsg=(id,text,type="good")=>{
+      const e=contentBox.querySelector('.vipMediaMsg[data-id="'+CSS.escape(id)+'"]');
+      if(e){e.textContent=text;e.className="notice "+type+" vipMediaMsg";e.dataset.id=id}
+    };
+
+    contentBox.querySelectorAll(".vipMediaUpload").forEach(b=>b.onclick=async()=>{
+      const id=b.dataset.id;
+      const input=contentBox.querySelector('.vipMediaFile[data-id="'+CSS.escape(id)+'"]');
+      const file=input?.files?.[0];
+      if(!file)return vipMsg(id,"Choisis une vidéo avant de continuer.","bad");
+      if(file.size>45*1024*1024)return vipMsg(id,"La vidéo dépasse 45 Mo. Passe-la dans Convertir45.","bad");
+      if(!["video/mp4","video/webm"].includes(file.type))return vipMsg(id,"Format accepté : MP4 ou WebM.","bad");
+      b.disabled=true;b.textContent="TÉLÉVERSEMENT...";
+      try{
+        const prep=await adminCall("create_vip_media_upload",{contentId:id,filename:file.name,fileSize:file.size,contentType:file.type});
+        vipMsg(id,"Téléversement de la vidéo en cours...","warn");
+        const up=await sb.storage.from("rap-jungle-vip").uploadToSignedUrl(prep.path,prep.token,file,{contentType:file.type,upsert:false});
+        if(up.error)throw up.error;
+        await adminCall("register_vip_media",{contentId:id,path:prep.path});
+        vipMsg(id,"Vidéo éducative enregistrée. Elle est maintenant disponible pour les membres VIP.","good");
+        await refreshAdmin();
+      }catch(e){
+        vipMsg(id,"Erreur : "+(e?.message||String(e)),"bad");
+      }finally{
+        b.disabled=false;b.textContent="DÉPOSER / REMPLACER LA VIDÉO";
+      }
+    });
+
+    contentBox.querySelectorAll(".vipMediaRemove").forEach(b=>b.onclick=async()=>{
+      const id=b.dataset.id;
+      if(!confirm("Retirer la vidéo de cette capsule VIP?"))return;
+      try{
+        await adminCall("remove_vip_media",{contentId:id});
+        await refreshAdmin();
+      }catch(e){vipMsg(id,"Erreur : "+(e?.message||String(e)),"bad")}
+    });
+  }
+
   const rows=adminData.vipRequests||[];
   const box=$("vipRequestList");
   if(!box)return;
