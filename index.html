@@ -603,7 +603,7 @@ input:focus,select:focus,textarea:focus{
 
     <section id="aMedia" class="adminTab hidden">
       <div class="panel">
-        <h2 class="jungle-title">Moniteur public</h2>
+        <h2 class="jungle-title">Moniteur public — boucle multi-vidéos</h2>
         <p class="small">Téléverse une vidéo dans la bibliothèque, puis choisis laquelle doit être diffusée sur l’accueil public. Le changement est synchronisé par Supabase.</p>
 
         <div class="grid">
@@ -774,6 +774,8 @@ function note(id,text,type="good"){const e=$(id);e.textContent=text;e.className=
 let challenge=null,participants=[],selectedCode=new URLSearchParams(location.search).get("vote")||null;
 let convertedUploadRef=null;
 let currentMedia=null;
+let publicMediaQueue=[];
+let publicMediaIndex=0;
 let adminData={submissions:[],participants:[],votes:[],media:[],artists:[],vipContent:[],newsPosts:[],active:null};
 let newsPosts=[];
 let adminCred=null;
@@ -830,9 +832,11 @@ function renderNewsFeed(){
 }
 
 async function loadPublicMedia(){
-  const m=await sb.from("rj_public_media").select("*").eq("active",true).order("updated_at",{ascending:false}).limit(1);
+  const m=await sb.from("rj_public_media").select("*").eq("active",true).order("playlist_order",{ascending:true}).order("created_at",{ascending:true});
   if(m.error){console.warn(m.error);return}
-  currentMedia=m.data?.[0]||null;
+  publicMediaQueue=m.data||[];
+  if(publicMediaIndex>=publicMediaQueue.length)publicMediaIndex=0;
+  currentMedia=publicMediaQueue[publicMediaIndex]||null;
   renderPublicMedia();
 }
 function renderPublicMedia(){
@@ -860,10 +864,12 @@ function renderPublicMedia(){
   }
 
   title.textContent=currentMedia.title||"MONITEUR RAP JUNGLE";
-  status.textContent="Chargement de la vidéo publique...";
-  live.textContent="EN ONDES";
+  status.textContent=publicMediaQueue.length>1
+    ? `Vidéo ${publicMediaIndex+1} sur ${publicMediaQueue.length} · boucle automatique`
+    : "Chargement de la vidéo publique...";
+  live.textContent=publicMediaQueue.length>1?`${publicMediaQueue.length} EN BOUCLE`:"EN ONDES";
 
-  v.loop=!!currentMedia.loop;
+  v.loop=false;
   v.muted=!!currentMedia.muted;
   v.autoplay=!!currentMedia.autoplay;
   v.playsInline=true;
@@ -872,11 +878,26 @@ function renderPublicMedia(){
   v.style.minHeight="220px";
 
   v.onloadedmetadata=()=>{
-    status.textContent="Vidéo prête.";
+    status.textContent=publicMediaQueue.length>1
+      ? `Vidéo ${publicMediaIndex+1} sur ${publicMediaQueue.length} · ${currentMedia.title||"sans titre"}`
+      : "Vidéo prête.";
   };
 
   v.oncanplay=()=>{
-    status.textContent="Vidéo prête à être lue.";
+    status.textContent=publicMediaQueue.length>1
+      ? `Lecture ${publicMediaIndex+1}/${publicMediaQueue.length} · la suivante part automatiquement`
+      : "Vidéo prête à être lue.";
+  };
+
+  v.onended=()=>{
+    if(!publicMediaQueue.length)return;
+    if(publicMediaQueue.length===1){
+      if(currentMedia.loop){v.currentTime=0;v.play().catch(()=>{});}
+      return;
+    }
+    publicMediaIndex=(publicMediaIndex+1)%publicMediaQueue.length;
+    currentMedia=publicMediaQueue[publicMediaIndex];
+    renderPublicMedia();
   };
 
   v.onerror=()=>{
@@ -2108,9 +2129,9 @@ function renderMediaAdmin(){
       <div class="row" style="justify-content:space-between;align-items:center">
         <div>
           <strong>${esc(m.title||"Vidéo sans titre")}</strong>
-          <div class="small">${m.active?"EN ONDES":"En bibliothèque"}</div>
+          <div class="small">${m.active?"DANS LA BOUCLE · position "+m.playlist_order:"En bibliothèque"}</div>
         </div>
-        <span class="status">${m.active?"EN ONDES":"PRÊTE"}</span>
+        <span class="status">${m.active?"EN BOUCLE":"PRÊTE"}</span>
       </div>
       <video class="media" src="${esc(m.public_url)}" controls playsinline style="margin-top:10px"></video>
       <div class="grid" style="margin-top:10px">
@@ -2128,7 +2149,8 @@ function renderMediaAdmin(){
         </div>
       </div>
       <div class="row" style="margin-top:10px">
-        <button class="mediaActivate goodbtn" data-id="${esc(m.id)}">${m.active?"EN ONDES ✓":"DIFFUSER"}</button>
+        <button class="mediaActivate ${m.active?"secondary":"goodbtn"}" data-id="${esc(m.id)}">${m.active?"RETIRER DE LA BOUCLE":"AJOUTER À LA BOUCLE"}</button>
+        ${m.active?`<button class="mediaUp secondary" data-id="${esc(m.id)}">↑</button><button class="mediaDown secondary" data-id="${esc(m.id)}">↓</button>`:""}
         <button class="mediaSave secondary" data-id="${esc(m.id)}">SAUVER</button>
         <button class="mediaDelete danger" data-id="${esc(m.id)}">SUPPRIMER</button>
       </div>
@@ -2137,7 +2159,16 @@ function renderMediaAdmin(){
 
   document.querySelectorAll(".mediaActivate").forEach(b=>b.onclick=async()=>{
     try{
-      await adminCall("activate_media",{mediaId:b.dataset.id});
+      const item=(adminData.media||[]).find(x=>x.id===b.dataset.id);
+      await adminCall(item?.active?"deactivate_media":"activate_media",{mediaId:b.dataset.id});
+      await refreshAdmin();
+      await loadPublicMedia();
+    }catch(e){alert(e.message)}
+  });
+
+  document.querySelectorAll(".mediaUp,.mediaDown").forEach(b=>b.onclick=async()=>{
+    try{
+      await adminCall("move_media",{mediaId:b.dataset.id,direction:b.classList.contains("mediaUp")?"up":"down"});
       await refreshAdmin();
       await loadPublicMedia();
     }catch(e){alert(e.message)}
